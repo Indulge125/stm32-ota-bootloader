@@ -4,7 +4,7 @@
 #define MyFlash_StartAddress 	0x08000000														//FLASH起始地址
 #define MyFlash_Page_Size 		1024															//FLASH扇区大小
 #define MyFlash_Page_Num	 	64																//FLASH总扇区个数
-#define MyFlash_B_Page_Num	 	20																//B区扇区个数
+#define MyFlash_B_Page_Num	 	32																//B区扇区个数
 #define MyFlash_A_Page_Num   	MyFlash_Page_Num - MyFlash_B_Page_Num							//A区扇区个数
 #define MyFlash_A_Start_Page 	MyFlash_B_Page_Num												//A区起始扇区编号
 #define MyFlash_A_Start_Address	MyFlash_StartAddress + MyFlash_A_Start_Page * MyFlash_Page_Size	//A区起始地址
