@@ -62,7 +62,19 @@ void BootLoader_Info(void)
 /* BootLoader处理串口数据 */
 void BootLoader_Event(uint8_t *data, uint16_t datalen)
 {
-	int temp, i;																		//temp用于版本号sscanf判断格式	i用于for循环
+	int temp, i;																										//temp用于版本号sscanf判断格式	i用于for循环
+	/* 去掉末尾的 \r\n：串口工具默认会带换行，而命令按接收长度严格匹配
+	 * （菜单命令要求 1 字节、版本号要求 26 字节），带了换行就会被静默忽略。
+	 * 但不能动 Xmodem 数据包 —— 那是二进制，尾字节可能就是 0x0D/0x0A，
+	 * 裁掉会让 CRC 校验失败。 */
+	if((BootStaFlag & IAP_XMODEMData_FLAG) == 0)
+	{
+		while((datalen > 0) &&
+		      ((data[datalen - 1] == '\r') || (data[datalen - 1] == '\n')))
+		{
+			datalen --;
+		}
+	}
 	
 	if(BootStaFlag == 0)																//如果BootStaFlag等于0，没有任何事件，进入if，判断是哪个命令
 	{
@@ -148,7 +160,12 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 			{
 				if(BootStaFlag & W25Q64_DoLo_Xmodem_FLAG)								//判断如果是命令5启动Xmodem的话，进入if
 				{
-					for(i = 0; i < 4; i++)												//W25Q64每次写入256个字节，对c8t6而言，1扇区1024个字节，需要循环写入4次
+					/* 尾包只写「真正有新数据」的页：一页 256 字节 = 2 个 128 字节包，
+					 * 剩余 rem 字节需要 (rem+255)/256 页。原实现固定写 4 页，
+					 * 其中不含新数据的页会把 UpDataBuff 里残留的旧包写进 W25Q64。 */
+					uint16_t rem = (UpDataA.XmodemNum % 8) * 128;
+					uint16_t pages = (rem + 255) / 256;
+					for(i = 0; i < pages; i ++)
 					{
 						W25Q64_PageProgram((UpDataA.XmodemNum/8) * 4 + i + UpDataA.W25Q64_BlockNum * 64 * 4, &UpDataA.UpDataBuff[i * 256], 256);		//将接收的数据写入W25Q64
 					}

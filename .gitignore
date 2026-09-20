@@ -36,3 +36,7 @@ _backup_*/
 _tools/
 # 其它工具的本地状态
 .zcode/
+
+# ============ Python 字节码缓存 ============
+__pycache__/
+*.pyc
