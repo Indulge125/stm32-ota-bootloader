@@ -1,4 +1,4 @@
-#ifndef __IIC_H
+﻿#ifndef __IIC_H
 #define __IIC_H
 
 void MyIIC_Init(void);

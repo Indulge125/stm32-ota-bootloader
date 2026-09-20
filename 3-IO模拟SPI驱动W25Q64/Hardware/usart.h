@@ -1,27 +1,27 @@
-#ifndef __USART_H
+ï»¿#ifndef __USART_H
 #define __USART_H
 
 #include "stdarg.h"
 #include "stdio.h"
 #include "string.h"
 
-#define USART1_RX_SIZE 	2048			//½ÓÊÕ»º³åÇø´óĞ¡
+#define USART1_RX_SIZE 	2048			//æ¥æ”¶ç¼“å†²åŒºå¤§å°
 #define USART1_TX_SIZE 	2048			
-#define USART1_RX_MAX 	256				//½ÓÊÕ×î´óÖµ
-#define Num 			10				//½á¹¹ÌåÊı×é³ÉÔ±
+#define USART1_RX_MAX 	256				//æ¥æ”¶æœ€å¤§å€¼
+#define Num 			10				//ç»“æ„ä½“æ•°ç»„æˆå‘˜
 
 typedef struct
 {
-	uint8_t *start;						//¿ªÊ¼Ö¸Õë
-	uint8_t *end;						//½áÊøÖ¸Õë
+	uint8_t *start;						//å¼€å§‹æŒ‡é’ˆ
+	uint8_t *end;						//ç»“æŸæŒ‡é’ˆ
 }UCB_URxBuffptr;	
 
 
 typedef struct
 {
-	uint16_t URxCounter;				//Í³¼Æ½ÓÊÕµÄÊı¾İÁ¿
-	UCB_URxBuffptr URxDataPtr[Num];		//½á¹¹ÌåÊı×é£¬Ã¿Ò»¸ö³ÉÔ±¶¼ÊÇÉÏ·½½á¹¹Ìå³ÉÔ±
-	UCB_URxBuffptr *URxDataIn;			//½á¹¹ÌåÖ¸Õë
+	uint16_t URxCounter;				//ç»Ÿè®¡æ¥æ”¶çš„æ•°æ®é‡
+	UCB_URxBuffptr URxDataPtr[Num];		//ç»“æ„ä½“æ•°ç»„ï¼Œæ¯ä¸€ä¸ªæˆå‘˜éƒ½æ˜¯ä¸Šæ–¹ç»“æ„ä½“æˆå‘˜
+	UCB_URxBuffptr *URxDataIn;			//ç»“æ„ä½“æŒ‡é’ˆ
 	UCB_URxBuffptr *URxDataOut;
 	UCB_URxBuffptr *URxDataEnd;
 }UCB_CB;	

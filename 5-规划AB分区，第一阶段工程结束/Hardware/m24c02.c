@@ -1,27 +1,27 @@
-#include "stm32f10x.h"                  // Device header
+ï»¿#include "stm32f10x.h"                  // Device header
 #include "iic.h"
 #include "Delay.h"
 #include "m24c02.h"
 #include "main.h"
 #include "string.h"
 
-/* AT24C02Ò»¹²ÄÜ´æ´¢256¸ö×Ö½Ú£¬Ã¿Ò»Ò³ÄÜ´æ´¢8¸ö×Ö½Ú */
+/* AT24C02ä¸€å…±èƒ½å­˜å‚¨256ä¸ªå­—èŠ‚ï¼Œæ¯ä¸€é¡µèƒ½å­˜å‚¨8ä¸ªå­—èŠ‚ */
 
-/* °´×Ö½ÚĞ´Èë */
+/* æŒ‰å­—èŠ‚å†™å…¥ */
 uint8_t AT24C02_WriteByte(uint8_t addr, uint8_t wdata)
 {
-	MyIIC_Start();//IICÆğÊ¼ĞÅºÅ
-	IIC_Send_Byte(AT24C02_WADDR);//·¢ËÍĞ´µØÖ·
+	MyIIC_Start();//IICèµ·å§‹ä¿¡å·
+	IIC_Send_Byte(AT24C02_WADDR);//å‘é€å†™åœ°å€
 	if(IIC_Receive_Ack() != 0)
 	{
 		return 1;
 	}
-	IIC_Send_Byte(addr);//·¢ËÍÒª´æ´¢µÄÊı¾İµÄ´æ´¢µØÖ·
+	IIC_Send_Byte(addr);//å‘é€è¦å­˜å‚¨çš„æ•°æ®çš„å­˜å‚¨åœ°å€
 	if(IIC_Receive_Ack() != 0)
 	{
 		return 2;
 	}
-	IIC_Send_Byte(wdata);//·¢ËÍÒª´æ´¢µÄÊı¾İ
+	IIC_Send_Byte(wdata);//å‘é€è¦å­˜å‚¨çš„æ•°æ®
 	if(IIC_Receive_Ack() != 0)
 	{
 		return 3;
@@ -31,18 +31,18 @@ uint8_t AT24C02_WriteByte(uint8_t addr, uint8_t wdata)
 	return 0;
 }
 
-/* °´Ò³Ğ´Èë AT24C02 8×Ö½ÚÃ¿Ò³ */
+/* æŒ‰é¡µå†™å…¥ AT24C02 8å­—èŠ‚æ¯é¡µ */
 uint8_t AT24C02_WritePage(uint8_t addr, uint8_t *wdatabuf)
 {
 	uint8_t i;
 	
-	MyIIC_Start();//IICÆğÊ¼ĞÅºÅ
-	IIC_Send_Byte(AT24C02_WADDR);//·¢ËÍĞ´µØÖ·
+	MyIIC_Start();//IICèµ·å§‹ä¿¡å·
+	IIC_Send_Byte(AT24C02_WADDR);//å‘é€å†™åœ°å€
 	if(IIC_Receive_Ack() != 0)
 	{
 		return 1;
 	}
-	IIC_Send_Byte(addr);//·¢ËÍÒª´æ´¢µÄÊı¾İµÄ´æ´¢µØÖ·
+	IIC_Send_Byte(addr);//å‘é€è¦å­˜å‚¨çš„æ•°æ®çš„å­˜å‚¨åœ°å€
 	if(IIC_Receive_Ack() != 0)
 	{
 		return 2;
@@ -59,26 +59,26 @@ uint8_t AT24C02_WritePage(uint8_t addr, uint8_t *wdatabuf)
 	return 0;
 }
 
-/* ¶Á²Ù×÷ */
-/*addr¶ÁÈ¡µÄµØÖ·£¬
-¶ÁÈ¡µÄÊı¾İ´æµ½rdataÊı×éÖĞ£¬
-datalenÊÇÊı×é³¤¶È*/
+/* è¯»æ“ä½œ */
+/*addrè¯»å–çš„åœ°å€ï¼Œ
+è¯»å–çš„æ•°æ®å­˜åˆ°rdataæ•°ç»„ä¸­ï¼Œ
+datalenæ˜¯æ•°ç»„é•¿åº¦*/
 uint8_t AT24C02_ReadData(uint8_t addr, uint8_t *rdatabuf, uint16_t datalen)
 {
-	MyIIC_Start();//IICÆğÊ¼ĞÅºÅ
-	IIC_Send_Byte(AT24C02_WADDR);//·¢ËÍĞ´µØÖ·
+	MyIIC_Start();//IICèµ·å§‹ä¿¡å·
+	IIC_Send_Byte(AT24C02_WADDR);//å‘é€å†™åœ°å€
 	if(IIC_Receive_Ack() != 0)
 	{
 		return 1;
 	}
-	IIC_Send_Byte(addr);//·¢ËÍÒª¶ÁÈ¡µÄÊı¾İµÄ´æ´¢µØÖ·
+	IIC_Send_Byte(addr);//å‘é€è¦è¯»å–çš„æ•°æ®çš„å­˜å‚¨åœ°å€
 	if(IIC_Receive_Ack() != 0)
 	{
 		return 2;
 	}
 	
-	MyIIC_Start();//IICÆğÊ¼ĞÅºÅ
-	IIC_Send_Byte(AT24C02_RADDR);//·¢ËÍ¶ÁµØÖ·
+	MyIIC_Start();//IICèµ·å§‹ä¿¡å·
+	IIC_Send_Byte(AT24C02_RADDR);//å‘é€è¯»åœ°å€
 	if(IIC_Receive_Ack() != 0)
 	{
 		return 3;
@@ -86,22 +86,22 @@ uint8_t AT24C02_ReadData(uint8_t addr, uint8_t *rdatabuf, uint16_t datalen)
 	for(uint8_t i = 0; i < datalen  - 1; i ++)
 	{
 		rdatabuf[i] = IIC_Receive_Byte();
-		IIC_Send_Ack(0);//Ö÷»úÓ¦´ğ£¬ËùÒÔÎª0
+		IIC_Send_Ack(0);//ä¸»æœºåº”ç­”ï¼Œæ‰€ä»¥ä¸º0
 	}
 	rdatabuf[datalen - 1] = IIC_Receive_Byte();
-	IIC_Send_Ack(1);//×îºóÒ»Î»²»ĞèÒªÖ÷»úÓ¦´ğ£¬ËùÒÔÎª1
+	IIC_Send_Ack(1);//æœ€åä¸€ä½ä¸éœ€è¦ä¸»æœºåº”ç­”ï¼Œæ‰€ä»¥ä¸º1
 	MyIIC_Stop();
 	return 0;
 }
 
-/* ÍùAT24c02ÖĞ¶ÁÈ¡OTAÊı¾İ */
+/* å¾€AT24c02ä¸­è¯»å–OTAæ•°æ® */
 void AT24C02_ReadOTAInfo(void)
 {
 	memset(&OTA_Info, 0, OTA_INFOCB_SIZE);
 	AT24C02_ReadData(0, (uint8_t *)&OTA_Info, OTA_INFOCB_SIZE);
 }
 
-/* ÍùAT24c02ÖĞĞ´ÈëOTAÊı¾İ */
+/* å¾€AT24c02ä¸­å†™å…¥OTAæ•°æ® */
 void AT24C02_WriteOTAInfo(void)
 {
 	uint8_t i;

@@ -1,15 +1,15 @@
-#ifndef __MAIN_H
+ï»¿#ifndef __MAIN_H
 #define __MAIN_H
 
-#define MyFlash_StartAddress 	0x08000000														//FLASHÆğÊ¼µØÖ·
-#define MyFlash_Page_Size 		1024															//FLASHÉÈÇø´óĞ¡
-#define MyFlash_Page_Num	 	64																//FLASH×ÜÉÈÇø¸öÊı
-#define MyFlash_B_Page_Num	 	20																//BÇøÉÈÇø¸öÊı
-#define MyFlash_A_Page_Num   	MyFlash_Page_Num - MyFlash_B_Page_Num							//AÇøÉÈÇø¸öÊı
-#define MyFlash_A_Start_Page 	MyFlash_B_Page_Num												//AÇøÆğÊ¼ÉÈÇø±àºÅ
-#define MyFlash_A_Start_Address	MyFlash_StartAddress + MyFlash_A_Start_Page * MyFlash_Page_Size	//AÇøÆğÊ¼µØÖ·
+#define MyFlash_StartAddress 	0x08000000														//FLASHèµ·å§‹åœ°å€
+#define MyFlash_Page_Size 		1024															//FLASHæ‰‡åŒºå¤§å°
+#define MyFlash_Page_Num	 	64																//FLASHæ€»æ‰‡åŒºä¸ªæ•°
+#define MyFlash_B_Page_Num	 	20																//BåŒºæ‰‡åŒºä¸ªæ•°
+#define MyFlash_A_Page_Num   	MyFlash_Page_Num - MyFlash_B_Page_Num							//AåŒºæ‰‡åŒºä¸ªæ•°
+#define MyFlash_A_Start_Page 	MyFlash_B_Page_Num												//AåŒºèµ·å§‹æ‰‡åŒºç¼–å·
+#define MyFlash_A_Start_Address	MyFlash_StartAddress + MyFlash_A_Start_Page * MyFlash_Page_Size	//AåŒºèµ·å§‹åœ°å€
 
-#define UpData_A_Flag				0x00000001													//×´Ì¬±êÖ¾Î»£¬ÖÃÎ»±íÃ÷ĞèÒª¸üĞÂAÇø
+#define UpData_A_Flag				0x00000001													//çŠ¶æ€æ ‡å¿—ä½ï¼Œç½®ä½è¡¨æ˜éœ€è¦æ›´æ–°AåŒº
 
 #define	IAP_XMODEMC_FLAG			0x00000002
 #define	IAP_XMODEMData_FLAG			0x00000004
@@ -18,30 +18,30 @@
 #define	W25Q64_DoLo_Xmodem_FLAG		0x00000020
 #define	W25Q64_To_Flash_Dolo_FLAG	0x00000040
 
-#define OTA_SET_FLAG			0x0a050301														//OTA_Flag¶Ô¹´×´Ì¬¶ÔÓ¦µÄÊıÖµ£¬Èç¹ûOTA_FlagµÈÓÚ¸ÃÖµ£¬ËµÃ÷ĞèÒªOTA¸üĞÂAÇø
+#define OTA_SET_FLAG			0x0a050301														//OTA_Flagå¯¹å‹¾çŠ¶æ€å¯¹åº”çš„æ•°å€¼ï¼Œå¦‚æœOTA_Flagç­‰äºè¯¥å€¼ï¼Œè¯´æ˜éœ€è¦OTAæ›´æ–°AåŒº
 
 typedef struct
 {								
-	/*AT24c02Ò»Ò³8¸ö×Ö½Ú£¬OTA_Flag 4¸ö×Ö½Ú£¬FileLen×Ü¹²5*4=20¸ö×Ö½Ú£¬Á½¸ö¼ÓÔÚÒ»Æğ¾ÍÊÇ24¸ö×Ö½Ú£¬¸ÕºÃÑ­»·Ğ´3Ò³*/
-	uint32_t OTA_Flag;			//±êÖ¾ĞÔµÄ±äÁ¿£¬µÈÓÚOTA_SET_FLAG¶¨ÒåµÄÖµ£¬ËµÃ÷ĞèÒªOTA¸üĞÂAÇø
-	uint32_t FileLen[11];		//W25Q64ÖĞ²»Í¬¿éÖĞ³ÌĞò¹Ì¼şµÄ³¤¶È£¬0ºÅ³ÉÔ±¹Ì¶¨¶ÔÓ¦W25Q64ÖĞ³ÌĞò±àÂë0µÄ¿é£¬ÓÃÓÚOTA
+	/*AT24c02ä¸€é¡µ8ä¸ªå­—èŠ‚ï¼ŒOTA_Flag 4ä¸ªå­—èŠ‚ï¼ŒFileLenæ€»å…±5*4=20ä¸ªå­—èŠ‚ï¼Œä¸¤ä¸ªåŠ åœ¨ä¸€èµ·å°±æ˜¯24ä¸ªå­—èŠ‚ï¼Œåˆšå¥½å¾ªç¯å†™3é¡µ*/
+	uint32_t OTA_Flag;			//æ ‡å¿—æ€§çš„å˜é‡ï¼Œç­‰äºOTA_SET_FLAGå®šä¹‰çš„å€¼ï¼Œè¯´æ˜éœ€è¦OTAæ›´æ–°AåŒº
+	uint32_t FileLen[11];		//W25Q64ä¸­ä¸åŒå—ä¸­ç¨‹åºå›ºä»¶çš„é•¿åº¦ï¼Œ0å·æˆå‘˜å›ºå®šå¯¹åº”W25Q64ä¸­ç¨‹åºç¼–ç 0çš„å—ï¼Œç”¨äºOTA
 	uint8_t  OTA_Ver[32];
-}OTA_InfoCB;					//OTAÏà¹ØµÄĞÅÏ¢½á¹¹Ìå£¬ĞèÒª±£´æµ½24c02
+}OTA_InfoCB;					//OTAç›¸å…³çš„ä¿¡æ¯ç»“æ„ä½“ï¼Œéœ€è¦ä¿å­˜åˆ°24c02
 
-#define OTA_INFOCB_SIZE			sizeof(OTA_InfoCB)		//OTAÏà¹ØµÄĞÅÏ¢½á¹¹ÌåÕ¼ÓÃµÄ×Ö½Ú³¤¶È
+#define OTA_INFOCB_SIZE			sizeof(OTA_InfoCB)		//OTAç›¸å…³çš„ä¿¡æ¯ç»“æ„ä½“å ç”¨çš„å­—èŠ‚é•¿åº¦
 	
 typedef struct
 {								
-	uint8_t UpDataBuff[MyFlash_Page_Size];				//¸üĞÂAÇøÊ±£¬ÓÃÓÚ±£´æ´ÓW25Q64ÖĞ¶ÁÈ¡µÄÊı¾İ
-	uint32_t W25Q64_BlockNum;							//ÓÃÓÚ¼ÇÂ¼´ÓÄÄ¸öW25Q64µÄ¿éÖĞ¶ÁÈ¡Êı¾İ
+	uint8_t UpDataBuff[MyFlash_Page_Size];				//æ›´æ–°AåŒºæ—¶ï¼Œç”¨äºä¿å­˜ä»W25Q64ä¸­è¯»å–çš„æ•°æ®
+	uint32_t W25Q64_BlockNum;							//ç”¨äºè®°å½•ä»å“ªä¸ªW25Q64çš„å—ä¸­è¯»å–æ•°æ®
 	uint32_t XmodemTimer;
 	uint32_t XmodemNum;
 	uint32_t XmodemCRC;
-}UpDataA_CB;											//¸üĞÂAÇøÓÃµÄ½á¹¹Ìå
+}UpDataA_CB;											//æ›´æ–°AåŒºç”¨çš„ç»“æ„ä½“
 
-extern OTA_InfoCB OTA_Info;								//Íâ²¿ÉùÃ÷±äÁ¿
-extern UpDataA_CB UpDataA;								//Íâ²¿ÉùÃ÷±äÁ¿
-extern uint32_t BootStaFlag;							//Íâ²¿ÉùÃ÷±äÁ¿
+extern OTA_InfoCB OTA_Info;								//å¤–éƒ¨å£°æ˜å˜é‡
+extern UpDataA_CB UpDataA;								//å¤–éƒ¨å£°æ˜å˜é‡
+extern uint32_t BootStaFlag;							//å¤–éƒ¨å£°æ˜å˜é‡
 
 
 #endif

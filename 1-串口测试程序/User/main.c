@@ -1,4 +1,4 @@
-#include "stm32f10x.h"                  // Device header
+ï»¿#include "stm32f10x.h"                  // Device header
 #include "Delay.h"
 #include "OLED.h"
 #include "usart.h"
@@ -14,14 +14,14 @@ int main(void)
 	{
 		if(U1CB.URxDataOut != U1CB.URxDataIn)
 		{
-			U1_printf("±¾´Î½ÓÊÕÁË%d×Ö½ÚÊı¾İ\r\n",U1CB.URxDataOut->end - U1CB.URxDataOut->start + 1);
+			U1_printf("æœ¬æ¬¡æ¥æ”¶äº†%då­—èŠ‚æ•°æ®\r\n",U1CB.URxDataOut->end - U1CB.URxDataOut->start + 1);
 			for(uint16_t i = 0; i <U1CB.URxDataOut->end - U1CB.URxDataOut->start + 1; i ++)
 			{
 				U1_printf("%c", U1CB.URxDataOut->start[i]);
 			}
 			U1_printf("\r\n");
-			U1CB.URxDataOut ++;							 //OutÖ¸ÕëºóÒÆÒ»Î»
-			if(U1CB.URxDataOut == U1CB.URxDataEnd)		 //ÅĞ¶ÏÊÇ·ñµ½´ïEND
+			U1CB.URxDataOut ++;							 //OutæŒ‡é’ˆåç§»ä¸€ä½
+			if(U1CB.URxDataOut == U1CB.URxDataEnd)		 //åˆ¤æ–­æ˜¯å¦åˆ°è¾¾END
 			{
 				U1CB.URxDataOut = &U1CB.URxDataPtr[0];
 			}

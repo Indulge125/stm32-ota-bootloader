@@ -1,4 +1,4 @@
-#include "stm32f10x.h"                  // Device header
+﻿#include "stm32f10x.h"                  // Device header
 #include "Delay.h"
 #include "OLED.h"
 #include "usart.h"
@@ -43,7 +43,7 @@ int main(void)
 		W25Q64_ReadData(i * 256, rdata, 256);
 		for(j = 0; j < 256; j++)
 		{
-			U1_printf("��ַ%d = %x\r\n", i * 256 + j, rdata[j]);
+			U1_printf("地址%d = %x\r\n", i * 256 + j, rdata[j]);
 		}
 	}
 

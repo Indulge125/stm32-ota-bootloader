@@ -1,4 +1,4 @@
-#include "stm32f10x.h"                  // Device header
+ï»¿#include "stm32f10x.h"                  // Device header
 #include "boot.h"
 #include "Delay.h"
 #include "OLED.h"
@@ -10,54 +10,54 @@
 #include "W25Q64.h"
 
 
-OTA_InfoCB OTA_Info;			//±£´æÔÚ24c02ÄÚµÄOTAĞÅÏ¢Ïà¹ØµÄ½á¹¹Ìå
-UpDataA_CB UpDataA;				//AÇø¸üĞÂÒªÓÃµ½µÄ½á¹¹Ìå
-uint32_t BootStaFlag;			//¼ÇÂ¼È«¾Ö×´Ì¬ĞÂ±êÖ¾Î»
+OTA_InfoCB OTA_Info;			//ä¿å­˜åœ¨24c02å†…çš„OTAä¿¡æ¯ç›¸å…³çš„ç»“æ„ä½“
+UpDataA_CB UpDataA;				//AåŒºæ›´æ–°è¦ç”¨åˆ°çš„ç»“æ„ä½“
+uint32_t BootStaFlag;			//è®°å½•å…¨å±€çŠ¶æ€æ–°æ ‡å¿—ä½
 
 int main(void)
 {
-	uint8_t i;					//ÓÃÓÚforÑ­»·
+	uint8_t i;					//ç”¨äºforå¾ªç¯
 
 	OLED_Init();
-	MyIIC_Init();				//IIC³õÊ¼»¯
-	USART1_Init(9600);			//´®¿Ú³õÊ¼»¯
-	AT24C02_ReadOTAInfo();		//´Ó24c02¶ÁÈ¡Êı¾İµ½OTA_Info½á¹¹Ìå
+	MyIIC_Init();				//IICåˆå§‹åŒ–
+	USART1_Init(9600);			//ä¸²å£åˆå§‹åŒ–
+	AT24C02_ReadOTAInfo();		//ä»24c02è¯»å–æ•°æ®åˆ°OTA_Infoç»“æ„ä½“
 	
 	U1_printf("OTA_Flag = %x\r\n",OTA_Info.OTA_Flag);
 	
 	OLED_ShowString(1,1,"MID:   DID:"); 
-	BootLoader_Branch();		//·ÖÖ§ÅĞ¶Ï
+	BootLoader_Branch();		//åˆ†æ”¯åˆ¤æ–­
 	
 	while(1)
 	{
-		/* UpData_A_Flag ÖÃÎ»£¬±íÃ÷ĞèÒª¸üĞÂAÇø */
+		/* UpData_A_Flag ç½®ä½ï¼Œè¡¨æ˜éœ€è¦æ›´æ–°AåŒº */
 		if(BootStaFlag & UpData_A_Flag)
 		{
-			U1_printf("³¤¶È%d×Ö½Ú\r\n", OTA_Info.FileLen[UpDataA.W25Q64_BlockNum]);							//´®¿Ú1Êä³öĞÅÏ¢
-			if(OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 4 == 0)											//ÅĞ¶Ï³¤¶ÈÊÇ·ñÊÇ4µÄÕûÊı£¬ÊÇµÄ»°½øÈëif
+			U1_printf("é•¿åº¦%då­—èŠ‚\r\n", OTA_Info.FileLen[UpDataA.W25Q64_BlockNum]);							//ä¸²å£1è¾“å‡ºä¿¡æ¯
+			if(OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 4 == 0)											//åˆ¤æ–­é•¿åº¦æ˜¯å¦æ˜¯4çš„æ•´æ•°ï¼Œæ˜¯çš„è¯è¿›å…¥if
 			{
-				MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);								//²Á³ıAÇøFLASH
-				for(i = 0; i < OTA_Info.FileLen[UpDataA.W25Q64_BlockNum]/MyFlash_Page_Size; i ++)			//Ã¿´Î¶ÁĞ´Ò»¸öÉÈÇøÊı¾İ£¬Ê¹ÓÃforÑ­»·£¬Ğ´ÈëÕûÊı¸öÉÈÇø
+				MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);								//æ“¦é™¤AåŒºFLASH
+				for(i = 0; i < OTA_Info.FileLen[UpDataA.W25Q64_BlockNum]/MyFlash_Page_Size; i ++)			//æ¯æ¬¡è¯»å†™ä¸€ä¸ªæ‰‡åŒºæ•°æ®ï¼Œä½¿ç”¨forå¾ªç¯ï¼Œå†™å…¥æ•´æ•°ä¸ªæ‰‡åŒº
 				{
-					W25Q64_ReadData(i * 1024 + UpDataA.W25Q64_BlockNum * 64 * 1024, UpDataA.UpDataBuff, MyFlash_Page_Size);						//ÏÈ´Ów25q64¶ÁÈ¡Ò»¸öµ¥Æ¬»úÉÈÇøµÄÊı¾İ
-					MyFlash_WriteFlash(MyFlash_StartAddress + i * MyFlash_Page_Size, (uint32_t *)UpDataA.UpDataBuff, MyFlash_Page_Size);		//Ğ´Èëµ½µ¥Æ¬»úAÇøÏàÓ¦µÄÉÈÇø
+					W25Q64_ReadData(i * 1024 + UpDataA.W25Q64_BlockNum * 64 * 1024, UpDataA.UpDataBuff, MyFlash_Page_Size);						//å…ˆä»w25q64è¯»å–ä¸€ä¸ªå•ç‰‡æœºæ‰‡åŒºçš„æ•°æ®
+					MyFlash_WriteFlash(MyFlash_StartAddress + i * MyFlash_Page_Size, (uint32_t *)UpDataA.UpDataBuff, MyFlash_Page_Size);		//å†™å…¥åˆ°å•ç‰‡æœºAåŒºç›¸åº”çš„æ‰‡åŒº
 				}
-				if(OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 1024 != 0)									//ÅĞ¶ÏÊÇ·ñ»¹ÓĞ²»×ãÒ»¸öÍêÕûÉÈÇøµÄÊı¾İ£¬ÓĞµÄ»°½øÈëif
+				if(OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 1024 != 0)									//åˆ¤æ–­æ˜¯å¦è¿˜æœ‰ä¸è¶³ä¸€ä¸ªå®Œæ•´æ‰‡åŒºçš„æ•°æ®ï¼Œæœ‰çš„è¯è¿›å…¥if
 				{
-					W25Q64_ReadData(i * 1024 + UpDataA.W25Q64_BlockNum * 64 * 1024, UpDataA.UpDataBuff, OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 1024);					//´Ów25q64¶ÁÈ¡²»×ãÒ»¸öÍêÕûÉÈÇøµÄÊı¾İ
-					MyFlash_WriteFlash(MyFlash_StartAddress + i * MyFlash_Page_Size, (uint32_t *)UpDataA.UpDataBuff, OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 1024);		//È»ºóĞ´Èëµ¥Æ¬»úAÇøÏàÓ¦µÄÉÈÇø
+					W25Q64_ReadData(i * 1024 + UpDataA.W25Q64_BlockNum * 64 * 1024, UpDataA.UpDataBuff, OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 1024);					//ä»w25q64è¯»å–ä¸è¶³ä¸€ä¸ªå®Œæ•´æ‰‡åŒºçš„æ•°æ®
+					MyFlash_WriteFlash(MyFlash_StartAddress + i * MyFlash_Page_Size, (uint32_t *)UpDataA.UpDataBuff, OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 1024);		//ç„¶åå†™å…¥å•ç‰‡æœºAåŒºç›¸åº”çš„æ‰‡åŒº
 				}
-				if(UpDataA.W25Q64_BlockNum == 0)	//Èç¹ûw25q64_BlockNumÊÇ0£¬±íÊ¾ÊÇOTA¸üĞÂAÇø£¬½øÈëif
+				if(UpDataA.W25Q64_BlockNum == 0)	//å¦‚æœw25q64_BlockNumæ˜¯0ï¼Œè¡¨ç¤ºæ˜¯OTAæ›´æ–°AåŒºï¼Œè¿›å…¥if
 				{
-					OTA_Info.OTA_Flag = 0;			//ÉèÖÃOTA_Flag£¬Ö»Òª²»ÊÇOTA_SET_FLAG¶¨ÒåµÄÖµ¼´¿É
-					AT24C02_WriteOTAInfo();			//Ğ´Èë24c02ÖĞ±£´æ
+					OTA_Info.OTA_Flag = 0;			//è®¾ç½®OTA_Flagï¼Œåªè¦ä¸æ˜¯OTA_SET_FLAGå®šä¹‰çš„å€¼å³å¯
+					AT24C02_WriteOTAInfo();			//å†™å…¥24c02ä¸­ä¿å­˜
 				}
-				NVIC_SystemReset();					//ÖØÆô
+				NVIC_SystemReset();					//é‡å¯
 			}
-			else									//ÅĞ¶Ï³¤¶ÈÊÇ·ñÊÇ4µÄÕûÊı±¶£¬²»ÊÇµÄ»°½øÈëelse
+			else									//åˆ¤æ–­é•¿åº¦æ˜¯å¦æ˜¯4çš„æ•´æ•°å€ï¼Œä¸æ˜¯çš„è¯è¿›å…¥else
 			{
-				U1_printf("³¤¶È´íÎó\r\n");			//´®¿Ú1Êä³öĞÅÏ¢
-				BootStaFlag &=~ UpData_A_Flag;		//Çå³ıUpData_A_Flag±êÖ¾Î»£¬È¡·´Çå³ı±êÖ¾Î»£¬·ñÔòwhileÓÖ½øÑ­»·ÁË
+				U1_printf("é•¿åº¦é”™è¯¯\r\n");			//ä¸²å£1è¾“å‡ºä¿¡æ¯
+				BootStaFlag &=~ UpData_A_Flag;		//æ¸…é™¤UpData_A_Flagæ ‡å¿—ä½ï¼Œå–åæ¸…é™¤æ ‡å¿—ä½ï¼Œå¦åˆ™whileåˆè¿›å¾ªç¯äº†
 			}
 		}
 	}

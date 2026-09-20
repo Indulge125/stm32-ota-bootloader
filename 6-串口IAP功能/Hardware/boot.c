@@ -1,4 +1,4 @@
-#include "stm32f10x.h"                  // Device header
+ï»¿#include "stm32f10x.h"                  // Device header
 #include "Delay.h"
 #include "OLED.h"
 #include "usart.h"
@@ -11,266 +11,266 @@
 
 load_a load_A;
 
-/* BootLoader·ÖÖ§ÅĞ¶Ï */
+/* BootLoaderåˆ†æ”¯åˆ¤æ–­ */
 void BootLoader_Branch(void)
 {
-	if(BootLoader_Enter(50) == 0)						//²»½øÈëÃüÁîĞĞ£¬²ÅÈ¥ÅĞ¶ÏOTA_Flag
+	if(BootLoader_Enter(50) == 0)						//ä¸è¿›å…¥å‘½ä»¤è¡Œï¼Œæ‰å»åˆ¤æ–­OTA_Flag
 	{
-		if(OTA_Info.OTA_Flag == OTA_SET_FLAG)			//ÅĞ¶ÏOTA_FlagÊÇ²»ÊÇOTA_SET_FLAG¶¨ÒåµÄÖµ£¬ÊÇµÄ»°½øÈëif
+		if(OTA_Info.OTA_Flag == OTA_SET_FLAG)			//åˆ¤æ–­OTA_Flagæ˜¯ä¸æ˜¯OTA_SET_FLAGå®šä¹‰çš„å€¼ï¼Œæ˜¯çš„è¯è¿›å…¥if
 		{
-			U1_printf("OTA¸üĞÂ\r\n");					//´®¿Ú1Êä³öĞÅÏ¢
-			BootStaFlag |= UpData_A_Flag;				//ÖÃÎ»±êÖ¾Î»£¬±íÃ÷ĞèÒª¸üĞÂAÇø
-			UpDataA.W25Q64_BlockNum = 0;				//W25Q64_BlockNumµÈÓÚ0£¬±íÃ÷ÊÇOTAÒª¸üĞÂAÇø
+			U1_printf("OTAæ›´æ–°\r\n");					//ä¸²å£1è¾“å‡ºä¿¡æ¯
+			BootStaFlag |= UpData_A_Flag;				//ç½®ä½æ ‡å¿—ä½ï¼Œè¡¨æ˜éœ€è¦æ›´æ–°AåŒº
+			UpDataA.W25Q64_BlockNum = 0;				//W25Q64_BlockNumç­‰äº0ï¼Œè¡¨æ˜æ˜¯OTAè¦æ›´æ–°AåŒº
 		}
-		else											//ÅĞ¶ÏOTA_FlagÊÇ²»ÊÇOTA_SET_FLAG¶¨ÒåµÄÖµ£¬²»ÊÇµÄ»°½øÈëelse
+		else											//åˆ¤æ–­OTA_Flagæ˜¯ä¸æ˜¯OTA_SET_FLAGå®šä¹‰çš„å€¼ï¼Œä¸æ˜¯çš„è¯è¿›å…¥else
 		{
-			U1_printf("OTAÎŞ¸üĞÂ£¬Ìø×ªAÇø\r\n");			//´®¿Ú1Êä³öĞÅÏ¢
-			LOAD_A(MyFlash_A_Start_Address);			//Ìø×ªµ½AÇø
+			U1_printf("OTAæ— æ›´æ–°ï¼Œè·³è½¬AåŒº\r\n");			//ä¸²å£1è¾“å‡ºä¿¡æ¯
+			LOAD_A(MyFlash_A_Start_Address);			//è·³è½¬åˆ°AåŒº
 		}
 	}
-	U1_printf("½øÈëBootLoaderÃüÁîĞĞ\r\n");
-	BootLoader_Info();									//´®¿ÚÊä³öÃüÁîĞĞĞÅÏ¢
+	U1_printf("è¿›å…¥BootLoaderå‘½ä»¤è¡Œ\r\n");
+	BootLoader_Info();									//ä¸²å£è¾“å‡ºå‘½ä»¤è¡Œä¿¡æ¯
 }
 
-/* ÅĞ¶ÏÊÇ·ñ½øÈëBootLoaderÃüÁîĞĞ */
+/* åˆ¤æ–­æ˜¯å¦è¿›å…¥BootLoaderå‘½ä»¤è¡Œ */
 uint8_t BootLoader_Enter(uint8_t timeout)
 {
-	U1_printf("%dmsÄÚ£¬ÊäÈëĞ¡Ğ´×ÖÄ¸ w ,½øÈëBootLoaderÃüÁîĞĞ\r\n", timeout * 100);
+	U1_printf("%dmså†…ï¼Œè¾“å…¥å°å†™å­—æ¯ w ,è¿›å…¥BootLoaderå‘½ä»¤è¡Œ\r\n", timeout * 100);
 	while(timeout -- )
 	{
 		Delay_ms(100);
 		if(USART1_RxBuff[0] == 'w')
 		{
-			return 1;								//½øÈëÃüÁîĞĞ
+			return 1;								//è¿›å…¥å‘½ä»¤è¡Œ
 		}
 	}
-	return 0;										//²»½øÈëÃüÁîĞĞ
+	return 0;										//ä¸è¿›å…¥å‘½ä»¤è¡Œ
 }
 
 void BootLoader_Info(void)
 {
 	U1_printf("\r\n");	
-	U1_printf("[1]²Á³ıAÇø\r\n");	
-	U1_printf("[2]´®¿ÚIAPÏÂÔØAÇø³ÌĞò\r\n");	
-	U1_printf("[3]ÉèÖÃOTA°æ±¾ºÅ\r\n");	
-	U1_printf("[4]²éÑ¯OTA°æ±¾ºÅ\r\n");	
-	U1_printf("[5]ÏòÍâ²¿FLASHÏÂÔØ³ÌĞò\r\n");	
-	U1_printf("[6]Ê¹ÓÃÍâ²¿FLASHÄÚ³ÌĞò\r\n");	
-	U1_printf("[7]ÖØÆô\r\n");	
+	U1_printf("[1]æ“¦é™¤AåŒº\r\n");	
+	U1_printf("[2]ä¸²å£IAPä¸‹è½½AåŒºç¨‹åº\r\n");	
+	U1_printf("[3]è®¾ç½®OTAç‰ˆæœ¬å·\r\n");	
+	U1_printf("[4]æŸ¥è¯¢OTAç‰ˆæœ¬å·\r\n");	
+	U1_printf("[5]å‘å¤–éƒ¨FLASHä¸‹è½½ç¨‹åº\r\n");	
+	U1_printf("[6]ä½¿ç”¨å¤–éƒ¨FLASHå†…ç¨‹åº\r\n");	
+	U1_printf("[7]é‡å¯\r\n");	
 }
 
-/* BootLoader´¦Àí´®¿ÚÊı¾İ */
+/* BootLoaderå¤„ç†ä¸²å£æ•°æ® */
 void BootLoader_Event(uint8_t *data, uint16_t datalen)
 {
-	int temp, i;																		//tempÓÃÓÚ°æ±¾ºÅsscanfÅĞ¶Ï¸ñÊ½	iÓÃÓÚforÑ­»·
+	int temp, i;																		//tempç”¨äºç‰ˆæœ¬å·sscanfåˆ¤æ–­æ ¼å¼	iç”¨äºforå¾ªç¯
 	
-	if(BootStaFlag == 0)																//Èç¹ûBootStaFlagµÈÓÚ0£¬Ã»ÓĞÈÎºÎÊÂ¼ş£¬½øÈëif£¬ÅĞ¶ÏÊÇÄÄ¸öÃüÁî
+	if(BootStaFlag == 0)																//å¦‚æœBootStaFlagç­‰äº0ï¼Œæ²¡æœ‰ä»»ä½•äº‹ä»¶ï¼Œè¿›å…¥ifï¼Œåˆ¤æ–­æ˜¯å“ªä¸ªå‘½ä»¤
 	{
-		if((datalen == 1) && (data[0] == '1'))											//Èç¹ûÊı¾İ³¤¶È1×Ö½ÚÇÒ×Ö·ûÊÇ1
+		if((datalen == 1) && (data[0] == '1'))											//å¦‚æœæ•°æ®é•¿åº¦1å­—èŠ‚ä¸”å­—ç¬¦æ˜¯1
 		{
-			U1_printf("²Á³ıAÇø\r\n");													//´®¿ÚÊä³öĞÅÏ¢
-			MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);				//²Á³ıA·ÖÇøÕ¼ÓÃµÄÉÈÇø
+			U1_printf("æ“¦é™¤AåŒº\r\n");													//ä¸²å£è¾“å‡ºä¿¡æ¯
+			MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);				//æ“¦é™¤Aåˆ†åŒºå ç”¨çš„æ‰‡åŒº
 		}
-		else if((datalen == 1) && (data[0] == '2'))										//Èç¹ûÊı¾İ³¤¶È1×Ö½ÚÇÒ×Ö·ûÊÇ2
+		else if((datalen == 1) && (data[0] == '2'))										//å¦‚æœæ•°æ®é•¿åº¦1å­—èŠ‚ä¸”å­—ç¬¦æ˜¯2
 		{
-			U1_printf("Í¨¹ıXmodemĞ­Òé£¬´®¿ÚIAPÏÂÔØAÇø³ÌĞò£¬ÇëÊ¹ÓÃbin¸ñÊ½ÎÄ¼ş\r\n");			//´®¿ÚÊä³öĞÅÏ¢
-			MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);				//²Á³ıA·ÖÇøÕ¼ÓÃµÄÉÈÇø
-			BootStaFlag |= (IAP_XMODEMC_FLAG | IAP_XMODEMData_FLAG);					//ÖÃÎ» IAP_XMODEMC_FLAG ºÍ IAP_XMODEMData_FLAG ±êÖ¾Î»
-			UpDataA.XmodemTimer = 0;													//Xmodem·¢ËÍ´óĞ´C¼ä¸ô±äÁ¿ÇåÁã
-			UpDataA.XmodemNum = 0;														//±£³Ö½ÓÊÕXmodemĞ­ÒéÊı¾İ°ü¸öÊıµÄ±äÁ¿ÇåÁã
+			U1_printf("é€šè¿‡Xmodemåè®®ï¼Œä¸²å£IAPä¸‹è½½AåŒºç¨‹åºï¼Œè¯·ä½¿ç”¨binæ ¼å¼æ–‡ä»¶\r\n");			//ä¸²å£è¾“å‡ºä¿¡æ¯
+			MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);				//æ“¦é™¤Aåˆ†åŒºå ç”¨çš„æ‰‡åŒº
+			BootStaFlag |= (IAP_XMODEMC_FLAG | IAP_XMODEMData_FLAG);					//ç½®ä½ IAP_XMODEMC_FLAG å’Œ IAP_XMODEMData_FLAG æ ‡å¿—ä½
+			UpDataA.XmodemTimer = 0;													//Xmodemå‘é€å¤§å†™Cé—´éš”å˜é‡æ¸…é›¶
+			UpDataA.XmodemNum = 0;														//ä¿æŒæ¥æ”¶Xmodemåè®®æ•°æ®åŒ…ä¸ªæ•°çš„å˜é‡æ¸…é›¶
 		}
-		else if((datalen == 1) && (data[0] == '3'))										//Èç¹ûÊı¾İ³¤¶È1×Ö½ÚÇÒ×Ö·ûÊÇ3
+		else if((datalen == 1) && (data[0] == '3'))										//å¦‚æœæ•°æ®é•¿åº¦1å­—èŠ‚ä¸”å­—ç¬¦æ˜¯3
 		{
-			U1_printf("ÉèÖÃ°æ±¾ºÅ\r\n");													//´®¿ÚÊä³öĞÅÏ¢
-			BootStaFlag |= IAP_SETVERSION_FLAG;											//ÖÃÎ» IAP_SETVERSION_FLAG ±êÖ¾Î»
+			U1_printf("è®¾ç½®ç‰ˆæœ¬å·\r\n");													//ä¸²å£è¾“å‡ºä¿¡æ¯
+			BootStaFlag |= IAP_SETVERSION_FLAG;											//ç½®ä½ IAP_SETVERSION_FLAG æ ‡å¿—ä½
 		}
-		else if((datalen == 1) && (data[0] == '4'))										//Èç¹ûÊı¾İ³¤¶È1×Ö½ÚÇÒ×Ö·ûÊÇ4
+		else if((datalen == 1) && (data[0] == '4'))										//å¦‚æœæ•°æ®é•¿åº¦1å­—èŠ‚ä¸”å­—ç¬¦æ˜¯4
 		{
-			U1_printf("²éÑ¯°æ±¾ºÅ\r\n");													//´®¿ÚÊä³öĞÅÏ¢
-			AT24C02_ReadOTAInfo();														//´Ó24c02¶ÁÈ¡±£´æµÄÊı¾İ
-			U1_printf("°æ±¾ºÅ:%s\r\n", OTA_Info.OTA_Ver);								//´®¿ÚÊä³öĞÅÏ¢
-			BootLoader_Info();															//´®¿ÚÊä³öÃüÁîĞĞĞÅÏ¢
+			U1_printf("æŸ¥è¯¢ç‰ˆæœ¬å·\r\n");													//ä¸²å£è¾“å‡ºä¿¡æ¯
+			AT24C02_ReadOTAInfo();														//ä»24c02è¯»å–ä¿å­˜çš„æ•°æ®
+			U1_printf("ç‰ˆæœ¬å·:%s\r\n", OTA_Info.OTA_Ver);								//ä¸²å£è¾“å‡ºä¿¡æ¯
+			BootLoader_Info();															//ä¸²å£è¾“å‡ºå‘½ä»¤è¡Œä¿¡æ¯
 		}
-		else if((datalen == 1) && (data[0] == '5'))										//Èç¹ûÊı¾İ³¤¶È1×Ö½ÚÇÒ×Ö·ûÊÇ5
+		else if((datalen == 1) && (data[0] == '5'))										//å¦‚æœæ•°æ®é•¿åº¦1å­—èŠ‚ä¸”å­—ç¬¦æ˜¯5
 		{
-			U1_printf("ÏòÍâ²¿FLASHÏÂÔØ³ÌĞò£¬ÊäÈëĞèÒªÊ¹ÓÃµÄ¿é±àºÅ£¨1-9£©\r\n");			//´®¿ÚÊä³öĞÅÏ¢
-			BootStaFlag |= W25Q64_DoLo_FLAG;											//ÖÃÎ» W25Q64_DoLo_FLAG ±êÖ¾Î»
+			U1_printf("å‘å¤–éƒ¨FLASHä¸‹è½½ç¨‹åºï¼Œè¾“å…¥éœ€è¦ä½¿ç”¨çš„å—ç¼–å·ï¼ˆ1-9ï¼‰\r\n");			//ä¸²å£è¾“å‡ºä¿¡æ¯
+			BootStaFlag |= W25Q64_DoLo_FLAG;											//ç½®ä½ W25Q64_DoLo_FLAG æ ‡å¿—ä½
 		}
-		else if((datalen == 1) && (data[0] == '6'))										//Èç¹ûÊı¾İ³¤¶È1×Ö½ÚÇÒ×Ö·ûÊÇ6
+		else if((datalen == 1) && (data[0] == '6'))										//å¦‚æœæ•°æ®é•¿åº¦1å­—èŠ‚ä¸”å­—ç¬¦æ˜¯6
 		{
-			U1_printf("Ê¹ÓÃÍâ²¿FLASHÄÚµÄ³ÌĞò£¬ÊäÈëĞèÒªÊ¹ÓÃµÄ¿é±àºÅ£¨1-9£©\r\n");			//´®¿ÚÊä³öĞÅÏ¢
-			BootStaFlag |= W25Q64_To_Flash_Dolo_FLAG;									//ÖÃÎ» W25Q64_To_Flash_Dolo_FLAG ±êÖ¾Î»
+			U1_printf("ä½¿ç”¨å¤–éƒ¨FLASHå†…çš„ç¨‹åºï¼Œè¾“å…¥éœ€è¦ä½¿ç”¨çš„å—ç¼–å·ï¼ˆ1-9ï¼‰\r\n");			//ä¸²å£è¾“å‡ºä¿¡æ¯
+			BootStaFlag |= W25Q64_To_Flash_Dolo_FLAG;									//ç½®ä½ W25Q64_To_Flash_Dolo_FLAG æ ‡å¿—ä½
 		}
-		else if((datalen == 1) && (data[0] == '7'))										//Èç¹ûÊı¾İ³¤¶È1×Ö½ÚÇÒ×Ö·ûÊÇ6
+		else if((datalen == 1) && (data[0] == '7'))										//å¦‚æœæ•°æ®é•¿åº¦1å­—èŠ‚ä¸”å­—ç¬¦æ˜¯6
 		{
-			U1_printf("ÖØÆô\r\n");														//´®¿ÚÊä³öĞÅÏ¢
-			Delay_ms(100);																//ÑÓÊ±100ms
-			NVIC_SystemReset();															//ÖØÆô
+			U1_printf("é‡å¯\r\n");														//ä¸²å£è¾“å‡ºä¿¡æ¯
+			Delay_ms(100);																//å»¶æ—¶100ms
+			NVIC_SystemReset();															//é‡å¯
 		}
 	}
 	
-	/* ·¢ÉúXmodemÊÂ¼ş£¬´¦Àí¸ÃÊÂ¼ş */
-	else if(BootStaFlag & IAP_XMODEMData_FLAG)											//Èç¹û IAP_XMODEMData_FLAG ÖÃÎ»±íÊ¾¿ªÊ¼Í¨¹ıXmodemĞ­Òé½ÓÊÕÊı¾İ
+	/* å‘ç”ŸXmodemäº‹ä»¶ï¼Œå¤„ç†è¯¥äº‹ä»¶ */
+	else if(BootStaFlag & IAP_XMODEMData_FLAG)											//å¦‚æœ IAP_XMODEMData_FLAG ç½®ä½è¡¨ç¤ºå¼€å§‹é€šè¿‡Xmodemåè®®æ¥æ”¶æ•°æ®
 	{
-		if((datalen == 133) && (data[0] == 0x01))										//ÅĞ¶ÏXmodemĞ­Òé´ÓÒ»°ü×Ü³¤133×Ö½ÚÇÒµÚÒ»¸ö×Ö½ÚÖ¡Í·ÊÇ0x01
+		if((datalen == 133) && (data[0] == 0x01))										//åˆ¤æ–­Xmodemåè®®ä»ä¸€åŒ…æ€»é•¿133å­—èŠ‚ä¸”ç¬¬ä¸€ä¸ªå­—èŠ‚å¸§å¤´æ˜¯0x01
 		{
-			BootStaFlag &=~ IAP_XMODEMC_FLAG;											//ÒÑ¾­ÊÕµ½Êı¾İ°üÁË£¬ËùÒÔÇå³ı IAP_XMODEMC_FLAG£¬²»ÔÙ·¢ËÍ´óĞ´C
-			UpDataA.XmodemCRC = Xmodem_CRC16(&data[3], 128);							//¼ÆËã±¾´Î½ÓÊÕµÄÊı¾İ°üÊı¾İµÄ CRC
-			if(UpDataA.XmodemCRC == data[131] * 256 + data[132])						//¼ÆËãµÄ CRC ºÍ½ÓÊÕµ½µÄ CRC ±È½Ï£¬Ò»ÑùËµÃ÷ÕıÈ·£¬½øÈëif
+			BootStaFlag &=~ IAP_XMODEMC_FLAG;											//å·²ç»æ”¶åˆ°æ•°æ®åŒ…äº†ï¼Œæ‰€ä»¥æ¸…é™¤ IAP_XMODEMC_FLAGï¼Œä¸å†å‘é€å¤§å†™C
+			UpDataA.XmodemCRC = Xmodem_CRC16(&data[3], 128);							//è®¡ç®—æœ¬æ¬¡æ¥æ”¶çš„æ•°æ®åŒ…æ•°æ®çš„ CRC
+			if(UpDataA.XmodemCRC == data[131] * 256 + data[132])						//è®¡ç®—çš„ CRC å’Œæ¥æ”¶åˆ°çš„ CRC æ¯”è¾ƒï¼Œä¸€æ ·è¯´æ˜æ­£ç¡®ï¼Œè¿›å…¥if
 			{
-				UpDataA.XmodemNum ++;													//ÒÑ½ÓÊÕµÄÊı¾İ°üÊıÁ¿£«1
-				memcpy(&UpDataA.UpDataBuff[((UpDataA.XmodemNum - 1) % (MyFlash_Page_Size / 128)) * 128], &data[3], 128);	//½«±¾´Î½ÓÊÕµÄÊı¾İ£¬Ôİ´æµ½UpDataA.UpDataBuff»º³åÇø
-				if((UpDataA.XmodemNum % (MyFlash_Page_Size / 128)) == 0)				//¶ÔÓÚc8t6¶øÑÔ£¬Èç¹ûÒÑ½ÓÊÕµÄÊı¾İ°üÊıÁ¿ÊÇ8µÄÕûÊı±¶£¬ËµÃ÷¶¼Âú1ÉÈÇøµÄ1024×Ö½Ú£¬½øÈëif
+				UpDataA.XmodemNum ++;													//å·²æ¥æ”¶çš„æ•°æ®åŒ…æ•°é‡ï¼‹1
+				memcpy(&UpDataA.UpDataBuff[((UpDataA.XmodemNum - 1) % (MyFlash_Page_Size / 128)) * 128], &data[3], 128);	//å°†æœ¬æ¬¡æ¥æ”¶çš„æ•°æ®ï¼Œæš‚å­˜åˆ°UpDataA.UpDataBuffç¼“å†²åŒº
+				if((UpDataA.XmodemNum % (MyFlash_Page_Size / 128)) == 0)				//å¯¹äºc8t6è€Œè¨€ï¼Œå¦‚æœå·²æ¥æ”¶çš„æ•°æ®åŒ…æ•°é‡æ˜¯8çš„æ•´æ•°å€ï¼Œè¯´æ˜éƒ½æ»¡1æ‰‡åŒºçš„1024å­—èŠ‚ï¼Œè¿›å…¥if
 				{
-					if(BootStaFlag & W25Q64_DoLo_Xmodem_FLAG)							//ÅĞ¶ÏÈç¹ûÊÇÃüÁî5Æô¶¯XmodemµÄ»°£¬½øÈëif
+					if(BootStaFlag & W25Q64_DoLo_Xmodem_FLAG)							//åˆ¤æ–­å¦‚æœæ˜¯å‘½ä»¤5å¯åŠ¨Xmodemçš„è¯ï¼Œè¿›å…¥if
 					{
-						for(i = 0; i < 4; i++)											//W25Q64Ã¿´ÎĞ´Èë256×Ö½Ú£¬¶Ôc8t6¶øÑÔ£¬1ÉÈÇø1024×Ö½Ú£¬ĞèÒªÑ­»·4´ÎĞ´
+						for(i = 0; i < 4; i++)											//W25Q64æ¯æ¬¡å†™å…¥256å­—èŠ‚ï¼Œå¯¹c8t6è€Œè¨€ï¼Œ1æ‰‡åŒº1024å­—èŠ‚ï¼Œéœ€è¦å¾ªç¯4æ¬¡å†™
 						{
-							W25Q64_PageProgram((UpDataA.XmodemNum/8 - 1) * 4 + i + UpDataA.W25Q64_BlockNum * 64 * 4, &UpDataA.UpDataBuff[i * 256], 256);	//½«½ÓÊÕµÄÊı¾İĞ´ÈëW25Q64
+							W25Q64_PageProgram((UpDataA.XmodemNum/8 - 1) * 4 + i + UpDataA.W25Q64_BlockNum * 64 * 4, &UpDataA.UpDataBuff[i * 256], 256);	//å°†æ¥æ”¶çš„æ•°æ®å†™å…¥W25Q64
 						}
 					}
-					else																//ÅĞ¶ÏÈç¹û²»ÊÇÃüÁî5Æô¶¯XmodemµÄ»°£¬ÄÇ¾ÍÊÇ´®¿ÚIAPÆô¶¯µÄ£¬½øÈëelse
+					else																//åˆ¤æ–­å¦‚æœä¸æ˜¯å‘½ä»¤5å¯åŠ¨Xmodemçš„è¯ï¼Œé‚£å°±æ˜¯ä¸²å£IAPå¯åŠ¨çš„ï¼Œè¿›å…¥else
 					{
-						MyFlash_WriteFlash(MyFlash_A_Start_Address + ((UpDataA.XmodemNum/(MyFlash_Page_Size / 128)) - 1) * MyFlash_Page_Size, (uint32_t *)UpDataA.UpDataBuff, MyFlash_Page_Size);		//Ğ´Èëµ½µ¥Æ¬»úAÇøÏàÓ¦µÄÉÈÇø
+						MyFlash_WriteFlash(MyFlash_A_Start_Address + ((UpDataA.XmodemNum/(MyFlash_Page_Size / 128)) - 1) * MyFlash_Page_Size, (uint32_t *)UpDataA.UpDataBuff, MyFlash_Page_Size);		//å†™å…¥åˆ°å•ç‰‡æœºAåŒºç›¸åº”çš„æ‰‡åŒº
 					}
 				}
-				U1_printf("\x06");														//ÕıÈ·£¬·µ»ØACK¸øCRTÈí¼ş
+				U1_printf("\x06");														//æ­£ç¡®ï¼Œè¿”å›ACKç»™CRTè½¯ä»¶
 			}
-			else																		//Èç¹ûCRCĞ£Ñé´íÎó£¬½øÈëelse
+			else																		//å¦‚æœCRCæ ¡éªŒé”™è¯¯ï¼Œè¿›å…¥else
 			{
-				U1_printf("\x15");														//·µ»ØNCK¸øCRTÈí¼ş
+				U1_printf("\x15");														//è¿”å›NCKç»™CRTè½¯ä»¶
 			}
 		}
-		if((datalen == 1) && (data[0] == 0x04))											//Èç¹ûÊÕµ½1¸ö×Ö½ÚÊı¾İÇÒÊÇ0x04£¬½øÈëif£¬ËµÃ÷ÊÕµ½EOT£¬±íÃ÷Êı¾İÒÑ¾­·¢ËÍÍê±Ï
+		if((datalen == 1) && (data[0] == 0x04))											//å¦‚æœæ”¶åˆ°1ä¸ªå­—èŠ‚æ•°æ®ä¸”æ˜¯0x04ï¼Œè¿›å…¥ifï¼Œè¯´æ˜æ”¶åˆ°EOTï¼Œè¡¨æ˜æ•°æ®å·²ç»å‘é€å®Œæ¯•
 		{
-			U1_printf("\x06");															//·µ»ØACK¸øCRTÈí¼ş
-			if((UpDataA.XmodemNum % (MyFlash_Page_Size / 128)) != 0)					//¶Ôc8t6¶øÑÔ£¬ÅĞ¶ÏÊÇ·ñ»¹ÓĞ²»Âú×ã1ÉÈÇø1024×Ö½ÚµÄÊı¾İ£¬Èç¹ûÓĞÔò½øÈëif£¬°ÑÊ£ÓàµÄÊı¾İĞ´Èë
+			U1_printf("\x06");															//è¿”å›ACKç»™CRTè½¯ä»¶
+			if((UpDataA.XmodemNum % (MyFlash_Page_Size / 128)) != 0)					//å¯¹c8t6è€Œè¨€ï¼Œåˆ¤æ–­æ˜¯å¦è¿˜æœ‰ä¸æ»¡è¶³1æ‰‡åŒº1024å­—èŠ‚çš„æ•°æ®ï¼Œå¦‚æœæœ‰åˆ™è¿›å…¥ifï¼ŒæŠŠå‰©ä½™çš„æ•°æ®å†™å…¥
 			{
-				if(BootStaFlag & W25Q64_DoLo_Xmodem_FLAG)								//ÅĞ¶ÏÈç¹ûÊÇÃüÁî5Æô¶¯XmodemµÄ»°£¬½øÈëif
+				if(BootStaFlag & W25Q64_DoLo_Xmodem_FLAG)								//åˆ¤æ–­å¦‚æœæ˜¯å‘½ä»¤5å¯åŠ¨Xmodemçš„è¯ï¼Œè¿›å…¥if
 				{
-					for(i = 0; i < 4; i++)												//W25Q64Ã¿´ÎĞ´Èë256¸ö×Ö½Ú£¬¶Ôc8t6¶øÑÔ£¬1ÉÈÇø1024¸ö×Ö½Ú£¬ĞèÒªÑ­»·Ğ´Èë4´Î
+					for(i = 0; i < 4; i++)												//W25Q64æ¯æ¬¡å†™å…¥256ä¸ªå­—èŠ‚ï¼Œå¯¹c8t6è€Œè¨€ï¼Œ1æ‰‡åŒº1024ä¸ªå­—èŠ‚ï¼Œéœ€è¦å¾ªç¯å†™å…¥4æ¬¡
 					{
-						W25Q64_PageProgram((UpDataA.XmodemNum/8) * 4 + i + UpDataA.W25Q64_BlockNum * 64 * 4, &UpDataA.UpDataBuff[i * 256], 256);		//½«½ÓÊÕµÄÊı¾İĞ´ÈëW25Q64
+						W25Q64_PageProgram((UpDataA.XmodemNum/8) * 4 + i + UpDataA.W25Q64_BlockNum * 64 * 4, &UpDataA.UpDataBuff[i * 256], 256);		//å°†æ¥æ”¶çš„æ•°æ®å†™å…¥W25Q64
 					}
 				}
-				else																	//ÅĞ¶ÏÈç¹û²»ÊÇÃüÁî5Æô¶¯XmodemµÄ»°£¬ÄÇ¾ÍÊÇ´®¿ÚIAPÆô¶¯µÄ£¬½øÈëelse
+				else																	//åˆ¤æ–­å¦‚æœä¸æ˜¯å‘½ä»¤5å¯åŠ¨Xmodemçš„è¯ï¼Œé‚£å°±æ˜¯ä¸²å£IAPå¯åŠ¨çš„ï¼Œè¿›å…¥else
 				{
-					MyFlash_WriteFlash(MyFlash_A_Start_Address + ((UpDataA.XmodemNum/(MyFlash_Page_Size / 128))) * MyFlash_Page_Size, (uint32_t *)UpDataA.UpDataBuff, (UpDataA.XmodemNum % (MyFlash_Page_Size / 128)) * 128);		//Ğ´Èëµ½µ¥Æ¬»úAÇøÏàÓ¦µÄÉÈÇø
+					MyFlash_WriteFlash(MyFlash_A_Start_Address + ((UpDataA.XmodemNum/(MyFlash_Page_Size / 128))) * MyFlash_Page_Size, (uint32_t *)UpDataA.UpDataBuff, (UpDataA.XmodemNum % (MyFlash_Page_Size / 128)) * 128);		//å†™å…¥åˆ°å•ç‰‡æœºAåŒºç›¸åº”çš„æ‰‡åŒº
 				}
 			}
-			BootStaFlag &=~ IAP_XMODEMData_FLAG;										//Xmodem½ÓÊÕÍê±Ï£¬Çå³ı±êÖ¾Î»
-			if(BootStaFlag & W25Q64_DoLo_Xmodem_FLAG)									//ÅĞ¶ÏÈç¹ûÊÇÃüÁî5Æô¶¯XmodemµÄ»°£¬½øÈëif
+			BootStaFlag &=~ IAP_XMODEMData_FLAG;										//Xmodemæ¥æ”¶å®Œæ¯•ï¼Œæ¸…é™¤æ ‡å¿—ä½
+			if(BootStaFlag & W25Q64_DoLo_Xmodem_FLAG)									//åˆ¤æ–­å¦‚æœæ˜¯å‘½ä»¤5å¯åŠ¨Xmodemçš„è¯ï¼Œè¿›å…¥if
 			{
-				BootStaFlag &=~ W25Q64_DoLo_Xmodem_FLAG;								//Çå³ı W25Q64_DoLo_Xmodem_FLAG ±êÖ¾Î»
-				OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] = UpDataA.XmodemNum * 128;	//¼ÆËã²¢±£´æ±¾´Î´«ÊäµÄ³ÌĞò´óĞ¡
-				AT24C02_WriteOTAInfo();													//±£´æµ½24c02
-				Delay_ms(100);															//ÑÓÊ±
-				BootLoader_Info();														//Êä³öÃüÁîĞĞĞÅÏ¢
+				BootStaFlag &=~ W25Q64_DoLo_Xmodem_FLAG;								//æ¸…é™¤ W25Q64_DoLo_Xmodem_FLAG æ ‡å¿—ä½
+				OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] = UpDataA.XmodemNum * 128;	//è®¡ç®—å¹¶ä¿å­˜æœ¬æ¬¡ä¼ è¾“çš„ç¨‹åºå¤§å°
+				AT24C02_WriteOTAInfo();													//ä¿å­˜åˆ°24c02
+				Delay_ms(100);															//å»¶æ—¶
+				BootLoader_Info();														//è¾“å‡ºå‘½ä»¤è¡Œä¿¡æ¯
 			}	
 			else
 			{
-				Delay_ms(100);															//ÑÓÊ±
-				NVIC_SystemReset();														//ÖØÆô
+				Delay_ms(100);															//å»¶æ—¶
+				NVIC_SystemReset();														//é‡å¯
 			}
 		}
 	}
 	
-	/* ·¢ÉúÉèÖÃ°æ±¾ºÅÊÂ¼ş£¬´¦Àí¸ÃÊÂ¼ş */
-	else if(BootStaFlag & IAP_SETVERSION_FLAG)											//½øÈë·ÖÖ§£¬´¦ÀíÉèÖÃ°æ±¾ºÅÊÂ¼ş
+	/* å‘ç”Ÿè®¾ç½®ç‰ˆæœ¬å·äº‹ä»¶ï¼Œå¤„ç†è¯¥äº‹ä»¶ */
+	else if(BootStaFlag & IAP_SETVERSION_FLAG)											//è¿›å…¥åˆ†æ”¯ï¼Œå¤„ç†è®¾ç½®ç‰ˆæœ¬å·äº‹ä»¶
 	{
-		if(datalen == 26)																//ÅĞ¶Ï°æ±¾ºÅ³¤¶ÈÊÇ²»ÊÇ26£¬ÊÇµÄ»°½øÈëif
+		if(datalen == 26)																//åˆ¤æ–­ç‰ˆæœ¬å·é•¿åº¦æ˜¯ä¸æ˜¯26ï¼Œæ˜¯çš„è¯è¿›å…¥if
 		{
-			if(sscanf((char *)data, "VER-%d.%d.%d-%d/%d/%d-%d:%d", &temp, &temp, &temp, &temp, &temp, &temp, &temp, &temp) == 8)		//ÅĞ¶Ï°æ±¾ºÅ¸ñÊ½£¬ÕıÈ·½øÈëif
+			if(sscanf((char *)data, "VER-%d.%d.%d-%d/%d/%d-%d:%d", &temp, &temp, &temp, &temp, &temp, &temp, &temp, &temp) == 8)		//åˆ¤æ–­ç‰ˆæœ¬å·æ ¼å¼ï¼Œæ­£ç¡®è¿›å…¥if
 			{
-				memset(OTA_Info.OTA_Ver, 0, 32);										//Çå³ı OTA_Info.OTA_Ver »º³åÇø
-				memcpy(OTA_Info.OTA_Ver, data, 26);										//½«´®¿Ú·¢ËÍ¹ıÀ´µÄ°æ±¾ºÅ¿½±´µ½ OTA_Info.OTA_Ver »º³åÇø
-				AT24C02_WriteOTAInfo();													//Ğ´Èë24c02
-				U1_printf("°æ±¾ÕıÈ·\r\n");												//´®¿ÚÊä³öĞÅÏ¢
-				BootStaFlag &=~ IAP_SETVERSION_FLAG;									//Çå³ı±êÖ¾Î»
-				BootLoader_Info();														//Êä³öÃüÁîĞĞĞÅÏ¢
+				memset(OTA_Info.OTA_Ver, 0, 32);										//æ¸…é™¤ OTA_Info.OTA_Ver ç¼“å†²åŒº
+				memcpy(OTA_Info.OTA_Ver, data, 26);										//å°†ä¸²å£å‘é€è¿‡æ¥çš„ç‰ˆæœ¬å·æ‹·è´åˆ° OTA_Info.OTA_Ver ç¼“å†²åŒº
+				AT24C02_WriteOTAInfo();													//å†™å…¥24c02
+				U1_printf("ç‰ˆæœ¬æ­£ç¡®\r\n");												//ä¸²å£è¾“å‡ºä¿¡æ¯
+				BootStaFlag &=~ IAP_SETVERSION_FLAG;									//æ¸…é™¤æ ‡å¿—ä½
+				BootLoader_Info();														//è¾“å‡ºå‘½ä»¤è¡Œä¿¡æ¯
 			}
-			else																		//ÅĞ¶Ï°æ±¾ºÅ¸ñÊ½ÊÇ·ñ´íÎó
+			else																		//åˆ¤æ–­ç‰ˆæœ¬å·æ ¼å¼æ˜¯å¦é”™è¯¯
 			{
-				U1_printf("°æ±¾ºÅ¸ñÊ½´íÎó\r\n");	
+				U1_printf("ç‰ˆæœ¬å·æ ¼å¼é”™è¯¯\r\n");	
 			}
 		}
-		else																			//ÅĞ¶Ï°æ±¾ºÅ³¤¶ÈÊÇ·ñ´íÎó
+		else																			//åˆ¤æ–­ç‰ˆæœ¬å·é•¿åº¦æ˜¯å¦é”™è¯¯
 		{
-			U1_printf("°æ±¾ºÅ³¤¶È´íÎó\r\n");	
+			U1_printf("ç‰ˆæœ¬å·é•¿åº¦é”™è¯¯\r\n");	
 		}
 	}
 	
-	/* ·¢ÉúÃüÁî5£¨ÏòÍâ²¿FLASHÏÂÔØ³ÌĞò£©ÊÂ¼ş£¬´¦Àí¸ÃÊÂ¼ş */
-	else if(BootStaFlag & W25Q64_DoLo_FLAG)												//½øÈë·ÖÖ§£¬´¦ÀíÃüÁî5£¬½«³ÌĞòÎÄ¼şĞ´ÈëW25Q64
+	/* å‘ç”Ÿå‘½ä»¤5ï¼ˆå‘å¤–éƒ¨FLASHä¸‹è½½ç¨‹åºï¼‰äº‹ä»¶ï¼Œå¤„ç†è¯¥äº‹ä»¶ */
+	else if(BootStaFlag & W25Q64_DoLo_FLAG)												//è¿›å…¥åˆ†æ”¯ï¼Œå¤„ç†å‘½ä»¤5ï¼Œå°†ç¨‹åºæ–‡ä»¶å†™å…¥W25Q64
 	{
-		if(datalen == 1)																//Êı¾İ³¤¶ÈÊÇ1ÕıÈ·£¬½øÈëif£¬±íÊ¾W25Q64µÄ¿é±àºÅ
+		if(datalen == 1)																//æ•°æ®é•¿åº¦æ˜¯1æ­£ç¡®ï¼Œè¿›å…¥ifï¼Œè¡¨ç¤ºW25Q64çš„å—ç¼–å·
 		{
-			if((data[0] >= 0x31) && (data[0] <= 0x39))									//ÅĞ¶ÏW25Q64µÄ¿é±àºÅ£¬·¶Î§1-9£¬ÕıÈ·½øÈëif
+			if((data[0] >= 0x31) && (data[0] <= 0x39))									//åˆ¤æ–­W25Q64çš„å—ç¼–å·ï¼ŒèŒƒå›´1-9ï¼Œæ­£ç¡®è¿›å…¥if
 			{
-				UpDataA.W25Q64_BlockNum = data[0] - 0x30;								//½«¿é±àºÅÓÉ×Ö·û1-9£¬×ª»»³ÉÊı×Ö1-9
-				BootStaFlag |= (IAP_XMODEMC_FLAG | IAP_XMODEMData_FLAG | W25Q64_DoLo_Xmodem_FLAG);	//ÖÃÎ»3¸ö±êÖ¾Î»
-				UpDataA.XmodemTimer = 0;												//Xmodem·¢ËÍ´óĞ´C£¬¼ä¸ôÊ±¼ä±äÁ¿ÇåÁã
-				UpDataA.XmodemNum = 0;													//±£³Ö½ÓÊÕXmodemĞ­ÒéÊı¾İ°ü¸öÊıµÄ±äÁ¿ÇåÁã
-				OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] = 0;							//W25Q64µÄ¿é±êºÅ¶ÔÓ¦µÄ³ÌĞò´óĞ¡±äÁ¿ÇåÁã
-				W25Q64_Erase64K(UpDataA.W25Q64_BlockNum);								//²Á³ıÏàÓ¦µÄW25Q64¿é
-				U1_printf("Í¨¹ıXmodemĞ­Òé£¬ÏòW25Q64µÚ%d¸ö¿éÏÂÔØ³ÌĞò£¬ÇëÊ¹ÓÃbin¸ñÊ½ÎÄ¼ş\r\n", UpDataA.W25Q64_BlockNum);	//´®¿ÚÊä³öĞÅÏ¢
-				BootStaFlag &=~ W25Q64_DoLo_FLAG;										//Çå³ı±êÖ¾Î»
+				UpDataA.W25Q64_BlockNum = data[0] - 0x30;								//å°†å—ç¼–å·ç”±å­—ç¬¦1-9ï¼Œè½¬æ¢æˆæ•°å­—1-9
+				BootStaFlag |= (IAP_XMODEMC_FLAG | IAP_XMODEMData_FLAG | W25Q64_DoLo_Xmodem_FLAG);	//ç½®ä½3ä¸ªæ ‡å¿—ä½
+				UpDataA.XmodemTimer = 0;												//Xmodemå‘é€å¤§å†™Cï¼Œé—´éš”æ—¶é—´å˜é‡æ¸…é›¶
+				UpDataA.XmodemNum = 0;													//ä¿æŒæ¥æ”¶Xmodemåè®®æ•°æ®åŒ…ä¸ªæ•°çš„å˜é‡æ¸…é›¶
+				OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] = 0;							//W25Q64çš„å—æ ‡å·å¯¹åº”çš„ç¨‹åºå¤§å°å˜é‡æ¸…é›¶
+				W25Q64_Erase64K(UpDataA.W25Q64_BlockNum);								//æ“¦é™¤ç›¸åº”çš„W25Q64å—
+				U1_printf("é€šè¿‡Xmodemåè®®ï¼Œå‘W25Q64ç¬¬%dä¸ªå—ä¸‹è½½ç¨‹åºï¼Œè¯·ä½¿ç”¨binæ ¼å¼æ–‡ä»¶\r\n", UpDataA.W25Q64_BlockNum);	//ä¸²å£è¾“å‡ºä¿¡æ¯
+				BootStaFlag &=~ W25Q64_DoLo_FLAG;										//æ¸…é™¤æ ‡å¿—ä½
 			}
-			else																		//ÅĞ¶ÏW25Q64µÄ¿é±êºÅ£¬·¶Î§1-9£¬´íÎó½øÈëelse£¬´®¿ÚÊä³öĞÅÏ¢
+			else																		//åˆ¤æ–­W25Q64çš„å—æ ‡å·ï¼ŒèŒƒå›´1-9ï¼Œé”™è¯¯è¿›å…¥elseï¼Œä¸²å£è¾“å‡ºä¿¡æ¯
 			{
-				U1_printf("±àºÅ´íÎó\r\n");
+				U1_printf("ç¼–å·é”™è¯¯\r\n");
 			}
 		}
-		else																			//ÅĞ¶ÏÊı¾İ³¤¶È£¬²»ÊÇ1µÄ»°´íÎó½øÈëelse£¬´®¿ÚÊä³öĞÅÏ¢
+		else																			//åˆ¤æ–­æ•°æ®é•¿åº¦ï¼Œä¸æ˜¯1çš„è¯é”™è¯¯è¿›å…¥elseï¼Œä¸²å£è¾“å‡ºä¿¡æ¯
 		{
-			U1_printf("Êı¾İ³¤¶È´íÎó\r\n");
+			U1_printf("æ•°æ®é•¿åº¦é”™è¯¯\r\n");
 		}
 	}
 	
-	/* ·¢ÉúÃüÁî6£¨Ê¹ÓÃÍâ²¿FLASHÄÚ³ÌĞò£©ÊÂ¼ş£¬´¦Àí¸ÃÊÂ¼ş */
-	else if(BootStaFlag & W25Q64_To_Flash_Dolo_FLAG)									//½øÈë·ÖÖ§£¬´¦ÀíÃüÁî6£¬Ê¹ÓÃW25Q64µÄ³ÌĞò
+	/* å‘ç”Ÿå‘½ä»¤6ï¼ˆä½¿ç”¨å¤–éƒ¨FLASHå†…ç¨‹åºï¼‰äº‹ä»¶ï¼Œå¤„ç†è¯¥äº‹ä»¶ */
+	else if(BootStaFlag & W25Q64_To_Flash_Dolo_FLAG)									//è¿›å…¥åˆ†æ”¯ï¼Œå¤„ç†å‘½ä»¤6ï¼Œä½¿ç”¨W25Q64çš„ç¨‹åº
 	{
-		if(datalen == 1)																//Êı¾İ³¤¶ÈÊÇ1ÕıÈ·£¬½øÈëif£¬±íÊ¾W25Q64µÄ¿é±àºÅ
+		if(datalen == 1)																//æ•°æ®é•¿åº¦æ˜¯1æ­£ç¡®ï¼Œè¿›å…¥ifï¼Œè¡¨ç¤ºW25Q64çš„å—ç¼–å·
 		{
-			if((data[0] >= 0x31) && (data[0] <= 0x39))									//ÅĞ¶ÏW25Q64µÄ¿é±êºÅ£¬·¶Î§1-9£¬ÕıÈ·½øÈëif
+			if((data[0] >= 0x31) && (data[0] <= 0x39))									//åˆ¤æ–­W25Q64çš„å—æ ‡å·ï¼ŒèŒƒå›´1-9ï¼Œæ­£ç¡®è¿›å…¥if
 			{
-				UpDataA.W25Q64_BlockNum = data[0] - 0x30;								//½«¿é±àºÅÓÉ×Ö·û1-9£¬×ª»»³ÉÊı×Ö1-9
-				BootStaFlag |= UpData_A_Flag;											//ÖÃÎ»±êÖ¾Î»£¬ËµÃ÷ĞèÒª¸üĞÂAÇø
-				BootStaFlag &=~ W25Q64_To_Flash_Dolo_FLAG;								//Çå³ı±êÖ¾Î»
+				UpDataA.W25Q64_BlockNum = data[0] - 0x30;								//å°†å—ç¼–å·ç”±å­—ç¬¦1-9ï¼Œè½¬æ¢æˆæ•°å­—1-9
+				BootStaFlag |= UpData_A_Flag;											//ç½®ä½æ ‡å¿—ä½ï¼Œè¯´æ˜éœ€è¦æ›´æ–°AåŒº
+				BootStaFlag &=~ W25Q64_To_Flash_Dolo_FLAG;								//æ¸…é™¤æ ‡å¿—ä½
 			}
-			else																		//ÅĞ¶ÏW25Q64µÄ¿é±êºÅ£¬·¶Î§1-9£¬´íÎó½øÈëelse£¬´®¿ÚÊä³öĞÅÏ¢
+			else																		//åˆ¤æ–­W25Q64çš„å—æ ‡å·ï¼ŒèŒƒå›´1-9ï¼Œé”™è¯¯è¿›å…¥elseï¼Œä¸²å£è¾“å‡ºä¿¡æ¯
 			{
-				U1_printf("±àºÅ´íÎó\r\n");
+				U1_printf("ç¼–å·é”™è¯¯\r\n");
 			}
 		}
-		else																			//ÅĞ¶ÏÊı¾İ³¤¶È£¬²»ÊÇ1µÄ»°´íÎó½øÈëelse£¬´®¿ÚÊä³öĞÅÏ¢
+		else																			//åˆ¤æ–­æ•°æ®é•¿åº¦ï¼Œä¸æ˜¯1çš„è¯é”™è¯¯è¿›å…¥elseï¼Œä¸²å£è¾“å‡ºä¿¡æ¯
 		{
-			U1_printf("Êı¾İ³¤¶È´íÎó\r\n");
+			U1_printf("æ•°æ®é•¿åº¦é”™è¯¯\r\n");
 		}
 	}
 }
 
 
-/* ÉèÖÃSPÖ¸Õë */
+/* è®¾ç½®SPæŒ‡é’ˆ */
 __asm void MSR_SP(uint32_t address)
 {
-	MSR MSP, r0										//addrµÄÖµ¼ÓÔØµ½ÁËr0Í¨ÓÃ¼Ä´æÆ÷£¬È»ºóÍ¨¹ıMSRÖ¸Áî£¬½«Í¨ÓÃ¼Ä´æÆ÷r0µÄÖµĞ´Èëµ½MSPÖ÷¶ÑÕ»Ö¸Õë
-	BX r14											//·µ»Øµ÷ÓÃMSP_SPº¯ÊıµÄÖ÷º¯Êı
+	MSR MSP, r0										//addrçš„å€¼åŠ è½½åˆ°äº†r0é€šç”¨å¯„å­˜å™¨ï¼Œç„¶åé€šè¿‡MSRæŒ‡ä»¤ï¼Œå°†é€šç”¨å¯„å­˜å™¨r0çš„å€¼å†™å…¥åˆ°MSPä¸»å †æ ˆæŒ‡é’ˆ
+	BX r14											//è¿”å›è°ƒç”¨MSP_SPå‡½æ•°çš„ä¸»å‡½æ•°
 }
 
-/* Ìø×ªA·ÖÇø */
+/* è·³è½¬Aåˆ†åŒº */
 void LOAD_A(uint32_t address)
 {
-	if(( *(uint32_t *)address >= 0x20000000) && ( *(uint32_t *)address <= 0x20004FFF))		//ÅĞ¶ÏspÕ»¶¥Ö¸ÕëµÄ·¶Î§ÊÇ·ñºÏ·¨£¬ÔÚ¶ÔÓ¦ĞÍºÅµÄRAM¿Ø¼ş·¶Î§ÄÚ
+	if(( *(uint32_t *)address >= 0x20000000) && ( *(uint32_t *)address <= 0x20004FFF))		//åˆ¤æ–­spæ ˆé¡¶æŒ‡é’ˆçš„èŒƒå›´æ˜¯å¦åˆæ³•ï¼Œåœ¨å¯¹åº”å‹å·çš„RAMæ§ä»¶èŒƒå›´å†…
 	{
-		MSR_SP( *(uint32_t *)address);														//ÉèÖÃsp
-		load_A = (load_a)*(uint32_t *)(address + 4);										//½«º¯ÊıÖ¸Õëload_AÖ¸ÏòAÇøµÄ¸´Î»±äÁ¿
-		BootLoader_Clear();																	//Çå³ıBÇøÊ¹ÓÃµÄÍâÉè
-		load_A();																			//µ÷ÓÃº¯ÊıÖ¸Õëload_A£¬¸Ä±äpcÖ¸Õë£¬´Ó¶ø×ªÏòAÇøµÄ¸´Î»ÏòÁ¿±äÁ¿£¬Íê³ÉÌø×ª
+		MSR_SP( *(uint32_t *)address);														//è®¾ç½®sp
+		load_A = (load_a)*(uint32_t *)(address + 4);										//å°†å‡½æ•°æŒ‡é’ˆload_AæŒ‡å‘AåŒºçš„å¤ä½å˜é‡
+		BootLoader_Clear();																	//æ¸…é™¤BåŒºä½¿ç”¨çš„å¤–è®¾
+		load_A();																			//è°ƒç”¨å‡½æ•°æŒ‡é’ˆload_Aï¼Œæ”¹å˜pcæŒ‡é’ˆï¼Œä»è€Œè½¬å‘AåŒºçš„å¤ä½å‘é‡å˜é‡ï¼Œå®Œæˆè·³è½¬
 	}
 	else
 	{
-		U1_printf("Ìø×ªAÇøÊ§°Ü\r\n");
+		U1_printf("è·³è½¬AåŒºå¤±è´¥\r\n");
 	}
 }
 
@@ -281,7 +281,7 @@ void BootLoader_Clear(void)
 	GPIO_DeInit(GPIOB);
 }
 
-/* XmodemµÄCRC16Ğ£Ñé */
+/* Xmodemçš„CRC16æ ¡éªŒ */
 uint16_t Xmodem_CRC16(uint8_t *data, uint16_t datalen)
 {
 	uint8_t i;

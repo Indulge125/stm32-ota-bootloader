@@ -1,8 +1,8 @@
-#ifndef __M24C02_H
+ï»¿#ifndef __M24C02_H
 #define __M24C02_H
 
-#define AT24C02_WADDR	0xA0//M24C02Ğ´ÈëµØÖ·
-#define AT24C02_RADDR	0xA1//M24C02¶Á³öµØÖ·
+#define AT24C02_WADDR	0xA0//M24C02å†™å…¥åœ°å€
+#define AT24C02_RADDR	0xA1//M24C02è¯»å‡ºåœ°å€
 
 uint8_t AT24C02_WriteByte(uint8_t addr, uint8_t wdata);
 uint8_t AT24C02_WritePage(uint8_t addr, uint8_t *wdata);

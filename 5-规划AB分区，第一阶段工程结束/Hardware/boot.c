@@ -1,4 +1,4 @@
-#include "stm32f10x.h"                  // Device header
+ï»¿#include "stm32f10x.h"                  // Device header
 #include "Delay.h"
 #include "OLED.h"
 #include "usart.h"
@@ -14,21 +14,21 @@ void BootLoader_Branch(void)
 {
 	if(BootLoader_Enter(50) == 0)
 	{
-		if(OTA_Info.OTA_Flag == OTA_SET_FLAG)			//ÅĞ¶ÏOTA_FlagÊÇ²»ÊÇOTA_SET_FLAG¶¨ÒåµÄÖµ£¬ÊÇµÄ»°½øÈëif
+		if(OTA_Info.OTA_Flag == OTA_SET_FLAG)			//åˆ¤æ–­OTA_Flagæ˜¯ä¸æ˜¯OTA_SET_FLAGå®šä¹‰çš„å€¼ï¼Œæ˜¯çš„è¯è¿›å…¥if
 		{
-			U1_printf("OTA¸üĞÂ\r\n");					//´®¿Ú1Êä³öĞÅÏ¢
-			BootStaFlag |= UpData_A_Flag;				//ÖÃÎ»±êÖ¾Î»£¬±íÃ÷ĞèÒª¸üĞÂAÇø
-			UpDataA.W25Q64_BlockNum = 0;				//W25Q64_BlockNumµÈÓÚ0£¬±íÃ÷ÊÇOTAÒª¸üĞÂAÇø
+			U1_printf("OTAæ›´æ–°\r\n");					//ä¸²å£1è¾“å‡ºä¿¡æ¯
+			BootStaFlag |= UpData_A_Flag;				//ç½®ä½æ ‡å¿—ä½ï¼Œè¡¨æ˜éœ€è¦æ›´æ–°AåŒº
+			UpDataA.W25Q64_BlockNum = 0;				//W25Q64_BlockNumç­‰äº0ï¼Œè¡¨æ˜æ˜¯OTAè¦æ›´æ–°AåŒº
 		}
-		else											//ÅĞ¶ÏOTA_FlagÊÇ²»ÊÇOTA_SET_FLAG¶¨ÒåµÄÖµ£¬²»ÊÇµÄ»°½øÈëelse
+		else											//åˆ¤æ–­OTA_Flagæ˜¯ä¸æ˜¯OTA_SET_FLAGå®šä¹‰çš„å€¼ï¼Œä¸æ˜¯çš„è¯è¿›å…¥else
 		{
-			U1_printf("OTAÎŞ¸üĞÂ£¬Ìø×ªAÇø\r\n");			//´®¿Ú1Êä³öĞÅÏ¢
-			LOAD_A(MyFlash_A_Start_Address);			//Ìø×ªµ½AÇø
+			U1_printf("OTAæ— æ›´æ–°ï¼Œè·³è½¬AåŒº\r\n");			//ä¸²å£1è¾“å‡ºä¿¡æ¯
+			LOAD_A(MyFlash_A_Start_Address);			//è·³è½¬åˆ°AåŒº
 		}
 	}
 	else
 	{
-		U1_printf("½øÈëBootLoaderÃüÁîĞĞ\r\n");
+		U1_printf("è¿›å…¥BootLoaderå‘½ä»¤è¡Œ\r\n");
 		BootLoader_Info();
 	}
 }
@@ -36,47 +36,47 @@ void BootLoader_Branch(void)
 
 uint8_t BootLoader_Enter(uint8_t timeout)
 {
-	U1_printf("%dmsÄÚ£¬ÊäÈëĞ¡Ğ´×ÖÄ¸ w ,½øÈëBootLoaderÃüÁîĞĞ\r\n", timeout * 100);
+	U1_printf("%dmså†…ï¼Œè¾“å…¥å°å†™å­—æ¯ w ,è¿›å…¥BootLoaderå‘½ä»¤è¡Œ\r\n", timeout * 100);
 	while(timeout -- )
 	{
 		Delay_ms(100);
 		if(USART1_RxBuff[0] == 'w')
 		{
-			return 1;								//½øÈëÃüÁîĞĞ
+			return 1;								//è¿›å…¥å‘½ä»¤è¡Œ
 		}
 	}
-	return 0;										//²»½øÈëÃüÁîĞĞ
+	return 0;										//ä¸è¿›å…¥å‘½ä»¤è¡Œ
 }
 
 void BootLoader_Info(void)
 {
 	U1_printf("\r\n");	
-	U1_printf("[1]²Á³ıAÇø\r\n");	
-	U1_printf("[2]´®¿ÚIAPÏÂÔØAÇø³ÌĞò\r\n");	
-	U1_printf("[3]ÉèÖÃOTA°æ±¾ºÅ\r\n");	
-	U1_printf("[4]²éÑ¯OTA°æ±¾ºÅ\r\n");	
-	U1_printf("[5]ÏòÍâ²¿FLASHÏÂÔØ³ÌĞò\r\n");	
-	U1_printf("[6]Ê¹ÓÃÍâ²¿FLASHÄÚ³ÌĞò\r\n");	
-	U1_printf("[7]ÖØÆô\r\n");	
+	U1_printf("[1]æ“¦é™¤AåŒº\r\n");	
+	U1_printf("[2]ä¸²å£IAPä¸‹è½½AåŒºç¨‹åº\r\n");	
+	U1_printf("[3]è®¾ç½®OTAç‰ˆæœ¬å·\r\n");	
+	U1_printf("[4]æŸ¥è¯¢OTAç‰ˆæœ¬å·\r\n");	
+	U1_printf("[5]å‘å¤–éƒ¨FLASHä¸‹è½½ç¨‹åº\r\n");	
+	U1_printf("[6]ä½¿ç”¨å¤–éƒ¨FLASHå†…ç¨‹åº\r\n");	
+	U1_printf("[7]é‡å¯\r\n");	
 }
 
 
-/* ÉèÖÃSPÖ¸Õë */
+/* è®¾ç½®SPæŒ‡é’ˆ */
 __asm void MSR_SP(uint32_t address)
 {
-	MSR MSP, r0										//addrµÄÖµ¼ÓÔØµ½ÁËr0Í¨ÓÃ¼Ä´æÆ÷£¬È»ºóÍ¨¹ıMSRÖ¸Áî£¬½«Í¨ÓÃ¼Ä´æÆ÷r0µÄÖµĞ´Èëµ½MSPÖ÷¶ÑÕ»Ö¸Õë
-	BX r14											//·µ»Øµ÷ÓÃMSP_SPº¯ÊıµÄÖ÷º¯Êı
+	MSR MSP, r0										//addrçš„å€¼åŠ è½½åˆ°äº†r0é€šç”¨å¯„å­˜å™¨ï¼Œç„¶åé€šè¿‡MSRæŒ‡ä»¤ï¼Œå°†é€šç”¨å¯„å­˜å™¨r0çš„å€¼å†™å…¥åˆ°MSPä¸»å †æ ˆæŒ‡é’ˆ
+	BX r14											//è¿”å›è°ƒç”¨MSP_SPå‡½æ•°çš„ä¸»å‡½æ•°
 }
 
-/* Ìø×ªA·ÖÇø */
+/* è·³è½¬Aåˆ†åŒº */
 void LOAD_A(uint32_t address)
 {
-	if(( *(uint32_t *)address >= 0x20000000) && ( *(uint32_t *)address <= 0x20004FFF))		//ÅĞ¶ÏspÕ»¶¥Ö¸ÕëµÄ·¶Î§ÊÇ·ñºÏ·¨£¬ÔÚ¶ÔÓ¦ĞÍºÅµÄRAM¿Ø¼ş·¶Î§ÄÚ
+	if(( *(uint32_t *)address >= 0x20000000) && ( *(uint32_t *)address <= 0x20004FFF))		//åˆ¤æ–­spæ ˆé¡¶æŒ‡é’ˆçš„èŒƒå›´æ˜¯å¦åˆæ³•ï¼Œåœ¨å¯¹åº”å‹å·çš„RAMæ§ä»¶èŒƒå›´å†…
 	{
-		MSR_SP( *(uint32_t *)address);														//ÉèÖÃsp
-		load_A = (load_a)*(uint32_t *)(address + 4);										//½«º¯ÊıÖ¸Õëload_AÖ¸ÏòAÇøµÄ¸´Î»±äÁ¿
-		BootLoader_Clear();																	//Çå³ıBÇøÊ¹ÓÃµÄÍâÉè
-		load_A();																			//µ÷ÓÃº¯ÊıÖ¸Õëload_A£¬¸Ä±äpcÖ¸Õë£¬´Ó¶ø×ªÏòAÇøµÄ¸´Î»ÏòÁ¿±äÁ¿£¬Íê³ÉÌø×ª
+		MSR_SP( *(uint32_t *)address);														//è®¾ç½®sp
+		load_A = (load_a)*(uint32_t *)(address + 4);										//å°†å‡½æ•°æŒ‡é’ˆload_AæŒ‡å‘AåŒºçš„å¤ä½å˜é‡
+		BootLoader_Clear();																	//æ¸…é™¤BåŒºä½¿ç”¨çš„å¤–è®¾
+		load_A();																			//è°ƒç”¨å‡½æ•°æŒ‡é’ˆload_Aï¼Œæ”¹å˜pcæŒ‡é’ˆï¼Œä»è€Œè½¬å‘AåŒºçš„å¤ä½å‘é‡å˜é‡ï¼Œå®Œæˆè·³è½¬
 	}
 }
 

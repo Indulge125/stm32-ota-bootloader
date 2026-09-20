@@ -1,4 +1,4 @@
-#include "stm32f10x.h"                  // Device header
+ï»¿#include "stm32f10x.h"                  // Device header
 #include "MySPI.h"
 #include "W25Q64_Ins.h"
 
@@ -9,7 +9,7 @@ void W25Q64_Init(void)
 }
 
 
-void W25Q64_ReadID(uint8_t *MID, uint16_t *DID)//Êä³ö8Î»³§ÉÌIDºÍ16Î»Éè±¸ID
+void W25Q64_ReadID(uint8_t *MID, uint16_t *DID)//è¾“å‡º8ä½å‚å•†IDå’Œ16ä½è®¾å¤‡ID
 {
 	MySPI_Start();
 	MySPI_SwapByte(W25Q64_CMD_READ_ID);

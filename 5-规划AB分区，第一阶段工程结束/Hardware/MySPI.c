@@ -1,16 +1,16 @@
-#include "stm32f10x.h"                  // Device header
+ï»¿#include "stm32f10x.h"                  // Device header
 
-void MySPI_W_SS(uint8_t BitValue)		//Ð´SS(CS)µÄÒý½Å
+void MySPI_W_SS(uint8_t BitValue)		//å†™SS(CS)çš„å¼•è„š
 {
 	GPIO_WriteBit(GPIOA, GPIO_Pin_4, (BitAction)BitValue);
 }
 
-void MySPI_W_SCK(uint8_t BitValue)		//Ð´SCK(CLK)µÄÒý½Å
+void MySPI_W_SCK(uint8_t BitValue)		//å†™SCK(CLK)çš„å¼•è„š
 {
 	GPIO_WriteBit(GPIOA, GPIO_Pin_5, (BitAction)BitValue);
 }
 
-void MySPI_W_MOSI(uint8_t BitValue)		//Ð´MOSIµÄÒý½Å
+void MySPI_W_MOSI(uint8_t BitValue)		//å†™MOSIçš„å¼•è„š
 {
 	GPIO_WriteBit(GPIOA, GPIO_Pin_7, (BitAction)BitValue);
 }

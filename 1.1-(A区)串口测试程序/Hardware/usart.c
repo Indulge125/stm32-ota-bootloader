@@ -1,4 +1,4 @@
-#include "stm32f10x.h"                  // Device header
+﻿#include "stm32f10x.h"                  // Device header
 #include "usart.h"
 
 uint8_t USART1_RxBuff[USART1_RX_SIZE];	//接收缓冲区ADC1
