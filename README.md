@@ -19,13 +19,13 @@
 
 | 命令 | 菜单提示 | 功能 |
 |---|---|---|
-| `1` | `[1] Erase region A` | 擦除 A 区 |
-| `2` | `[2] Download app to region A via Xmodem` | 通过 Xmodem 下载程序到 A 区 |
-| `3` | `[3] Set OTA version` | 设置 OTA 版本号 |
-| `4` | `[4] Query OTA version` | 查询 OTA 版本号 |
-| `5` | `[5] Download firmware to external flash` | 向外部 Flash 下载程序（可选块号 1~9） |
-| `6` | `[6] Load firmware from external flash` | 使用外部 Flash 中的程序（搬运到 A 区并跳转） |
-| `7` | `[7] Reset` | 复位 |
+| `1` | `[1]擦除A区` | 擦除 A 区 |
+| `2` | `[2]串口IAP下载A区程序` | 通过 Xmodem 下载程序到 A 区 |
+| `3` | `[3]设置OTA版本号` | 设置 OTA 版本号 |
+| `4` | `[4]查询OTA版本号` | 查询 OTA 版本号 |
+| `5` | `[5]向外部FLASH下载程序` | 向外部 Flash 下载程序（可选块号 1~9） |
+| `6` | `[6]使用外部FLASH内程序` | 使用外部 Flash 中的程序（搬运到 A 区并跳转） |
+| `7` | `[7]重启` | 复位 |
 
 **掉电保持**：OTA 标志位、各固件长度、版本号存放在 AT24C02 中，
 断电重启后升级状态不丢失 —— 这是整个升级流程能跨重启完成的前提。
