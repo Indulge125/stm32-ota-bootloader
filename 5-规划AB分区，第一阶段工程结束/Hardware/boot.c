@@ -16,19 +16,19 @@ void BootLoader_Branch(void)
 	{
 		if(OTA_Info.OTA_Flag == OTA_SET_FLAG)			//判断OTA_Flag是不是OTA_SET_FLAG定义的值，是的话进入if
 		{
-			U1_printf("OTA update\r\n");					//串口1输出信息
+			U1_printf("OTA更新\r\n");					//串口1输出信息
 			BootStaFlag |= UpData_A_Flag;				//置位标志位，表明需要更新A区
 			UpDataA.W25Q64_BlockNum = 0;				//W25Q64_BlockNum等于0，表明是OTA要更新A区
 		}
 		else											//判断OTA_Flag是不是OTA_SET_FLAG定义的值，不是的话进入else
 		{
-			U1_printf("No OTA update, jumping to region A\r\n");			//串口1输出信息
+			U1_printf("OTA无更新，跳转A区\r\n");			//串口1输出信息
 			LOAD_A(MyFlash_A_Start_Address);			//跳转到A区
 		}
 	}
 	else
 	{
-		U1_printf("Entering BootLoader command line\r\n");
+		U1_printf("进入BootLoader命令行\r\n");
 		BootLoader_Info();
 	}
 }
@@ -36,7 +36,7 @@ void BootLoader_Branch(void)
 
 uint8_t BootLoader_Enter(uint8_t timeout)
 {
-	U1_printf("Send lowercase 'w' within %dms to enter BootLoader command line\r\n", timeout * 100);
+	U1_printf("%dms内，输入小写字母 w ,进入BootLoader命令行\r\n", timeout * 100);
 	while(timeout -- )
 	{
 		Delay_ms(100);
@@ -51,13 +51,13 @@ uint8_t BootLoader_Enter(uint8_t timeout)
 void BootLoader_Info(void)
 {
 	U1_printf("\r\n");	
-	U1_printf("[1] Erase region A\r\n");	
-	U1_printf("[2] Download app to region A via Xmodem\r\n");	
-	U1_printf("[3] Set OTA version\r\n");	
-	U1_printf("[4] Query OTA version\r\n");	
-	U1_printf("[5] Download firmware to external flash\r\n");	
-	U1_printf("[6] Load firmware from external flash\r\n");	
-	U1_printf("[7] Reset\r\n");	
+	U1_printf("[1]擦除A区\r\n");	
+	U1_printf("[2]串口IAP下载A区程序\r\n");	
+	U1_printf("[3]设置OTA版本号\r\n");	
+	U1_printf("[4]查询OTA版本号\r\n");	
+	U1_printf("[5]向外部FLASH下载程序\r\n");	
+	U1_printf("[6]使用外部FLASH内程序\r\n");	
+	U1_printf("[7]重启\r\n");	
 }
 
 

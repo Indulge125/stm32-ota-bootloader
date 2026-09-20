@@ -33,7 +33,7 @@ int main(void)
 		/* UpData_A_Flag 置位，表明需要更新A区 */
 		if(BootStaFlag & UpData_A_Flag)
 		{
-			U1_printf("Length: %d bytes\r\n", OTA_Info.FileLen[UpDataA.W25Q64_BlockNum]);							//串口1输出信息
+			U1_printf("长度%d字节\r\n", OTA_Info.FileLen[UpDataA.W25Q64_BlockNum]);							//串口1输出信息
 			if(OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 4 == 0)											//判断长度是否是4的整数，是的话进入if
 			{
 				MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);								//擦除A区FLASH
@@ -56,7 +56,7 @@ int main(void)
 			}
 			else									//判断长度是否是4的整数倍，不是的话进入else
 			{
-				U1_printf("Length error\r\n");			//串口1输出信息
+				U1_printf("长度错误\r\n");			//串口1输出信息
 				BootStaFlag &=~ UpData_A_Flag;		//清除UpData_A_Flag标志位，取反清除标志位，否则while又进循环了
 			}
 		}

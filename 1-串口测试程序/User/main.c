@@ -14,7 +14,7 @@ int main(void)
 	{
 		if(U1CB.URxDataOut != U1CB.URxDataIn)
 		{
-			U1_printf("Received %d bytes\r\n",U1CB.URxDataOut->end - U1CB.URxDataOut->start + 1);
+			U1_printf("本次接收了%d字节数据\r\n",U1CB.URxDataOut->end - U1CB.URxDataOut->start + 1);
 			for(uint16_t i = 0; i <U1CB.URxDataOut->end - U1CB.URxDataOut->start + 1; i ++)
 			{
 				U1_printf("%c", U1CB.URxDataOut->start[i]);

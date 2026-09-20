@@ -18,24 +18,24 @@ void BootLoader_Branch(void)
 	{
 		if(OTA_Info.OTA_Flag == OTA_SET_FLAG)			//判断OTA_Flag是不是OTA_SET_FLAG定义的值，是的话进入if
 		{
-			U1_printf("OTA update\r\n");					//串口1输出信息
+			U1_printf("OTA更新\r\n");					//串口1输出信息
 			BootStaFlag |= UpData_A_Flag;				//置位标志位，表明需要更新A区
 			UpDataA.W25Q64_BlockNum = 0;				//W25Q64_BlockNum等于0，表明是OTA要更新A区
 		}
 		else											//判断OTA_Flag是不是OTA_SET_FLAG定义的值，不是的话进入else
 		{
-			U1_printf("No OTA update, jumping to region A\r\n");			//串口1输出信息
+			U1_printf("OTA无更新，跳转A区\r\n");			//串口1输出信息
 			LOAD_A(MyFlash_A_Start_Address);			//跳转到A区
 		}
 	}
-	U1_printf("Entering BootLoader command line\r\n");
+	U1_printf("进入BootLoader命令行\r\n");
 	BootLoader_Info();									//串口输出命令行信息
 }
 
 /* 判断是否进入BootLoader命令行 */
 uint8_t BootLoader_Enter(uint8_t timeout)
 {
-	U1_printf("Send lowercase 'w' within %dms to enter BootLoader command line\r\n", timeout * 100);
+	U1_printf("%dms内，输入小写字母 w ,进入BootLoader命令行\r\n", timeout * 100);
 	while(timeout -- )
 	{
 		Delay_ms(100);
@@ -50,13 +50,13 @@ uint8_t BootLoader_Enter(uint8_t timeout)
 void BootLoader_Info(void)
 {
 	U1_printf("\r\n");	
-	U1_printf("[1] Erase region A\r\n");	
-	U1_printf("[2] Download app to region A via Xmodem\r\n");	
-	U1_printf("[3] Set OTA version\r\n");	
-	U1_printf("[4] Query OTA version\r\n");	
-	U1_printf("[5] Download firmware to external flash\r\n");	
-	U1_printf("[6] Load firmware from external flash\r\n");	
-	U1_printf("[7] Reset\r\n");	
+	U1_printf("[1]擦除A区\r\n");	
+	U1_printf("[2]串口IAP下载A区程序\r\n");	
+	U1_printf("[3]设置OTA版本号\r\n");	
+	U1_printf("[4]查询OTA版本号\r\n");	
+	U1_printf("[5]向外部FLASH下载程序\r\n");	
+	U1_printf("[6]使用外部FLASH内程序\r\n");	
+	U1_printf("[7]重启\r\n");	
 }
 
 /* BootLoader处理串口数据 */
@@ -68,12 +68,12 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 	{
 		if((datalen == 1) && (data[0] == '1'))											//如果数据长度1字节且字符是1
 		{
-			U1_printf("Erasing region A\r\n");													//串口输出信息
+			U1_printf("擦除A区\r\n");													//串口输出信息
 			MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);				//擦除A分区占用的扇区
 		}
 		else if((datalen == 1) && (data[0] == '2'))										//如果数据长度1字节且字符是2
 		{
-			U1_printf("Downloading app to region A via Xmodem, please send a .bin file\r\n");			//串口输出信息
+			U1_printf("通过Xmodem协议，串口IAP下载A区程序，请使用bin格式文件\r\n");			//串口输出信息
 			MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);				//擦除A分区占用的扇区
 			BootStaFlag |= (IAP_XMODEMC_FLAG | IAP_XMODEMData_FLAG);					//置位 IAP_XMODEMC_FLAG 和 IAP_XMODEMData_FLAG 标志位
 			UpDataA.XmodemTimer = 0;													//Xmodem发送大写C间隔变量清零
@@ -81,29 +81,29 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 		}
 		else if((datalen == 1) && (data[0] == '3'))										//如果数据长度1字节且字符是3
 		{
-			U1_printf("Set version\r\n");													//串口输出信息
+			U1_printf("设置版本号\r\n");													//串口输出信息
 			BootStaFlag |= IAP_SETVERSION_FLAG;											//置位 IAP_SETVERSION_FLAG 标志位
 		}
 		else if((datalen == 1) && (data[0] == '4'))										//如果数据长度1字节且字符是4
 		{
-			U1_printf("Query version\r\n");													//串口输出信息
+			U1_printf("查询版本号\r\n");													//串口输出信息
 			AT24C02_ReadOTAInfo();														//从24c02读取保存的数据
-			U1_printf("Version: %s\r\n", OTA_Info.OTA_Ver);								//串口输出信息
+			U1_printf("版本号:%s\r\n", OTA_Info.OTA_Ver);								//串口输出信息
 			BootLoader_Info();															//串口输出命令行信息
 		}
 		else if((datalen == 1) && (data[0] == '5'))										//如果数据长度1字节且字符是5
 		{
-			U1_printf("Download to external flash, enter block number (1-9)\r\n");			//串口输出信息
+			U1_printf("向外部FLASH下载程序，输入需要使用的块编号（1-9）\r\n");			//串口输出信息
 			BootStaFlag |= W25Q64_DoLo_FLAG;											//置位 W25Q64_DoLo_FLAG 标志位
 		}
 		else if((datalen == 1) && (data[0] == '6'))										//如果数据长度1字节且字符是6
 		{
-			U1_printf("Load from external flash, enter block number (1-9)\r\n");			//串口输出信息
+			U1_printf("使用外部FLASH内的程序，输入需要使用的块编号（1-9）\r\n");			//串口输出信息
 			BootStaFlag |= W25Q64_To_Flash_Dolo_FLAG;									//置位 W25Q64_To_Flash_Dolo_FLAG 标志位
 		}
 		else if((datalen == 1) && (data[0] == '7'))										//如果数据长度1字节且字符是6
 		{
-			U1_printf("Reset\r\n");														//串口输出信息
+			U1_printf("重启\r\n");														//串口输出信息
 			Delay_ms(100);																//延时100ms
 			NVIC_SystemReset();															//重启
 		}
@@ -185,18 +185,18 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 				memset(OTA_Info.OTA_Ver, 0, 32);										//清除 OTA_Info.OTA_Ver 缓冲区
 				memcpy(OTA_Info.OTA_Ver, data, 26);										//将串口发送过来的版本号拷贝到 OTA_Info.OTA_Ver 缓冲区
 				AT24C02_WriteOTAInfo();													//写入24c02
-				U1_printf("Version accepted\r\n");												//串口输出信息
+				U1_printf("版本正确\r\n");												//串口输出信息
 				BootStaFlag &=~ IAP_SETVERSION_FLAG;									//清除标志位
 				BootLoader_Info();														//输出命令行信息
 			}
 			else																		//判断版本号格式是否错误
 			{
-				U1_printf("Bad version format\r\n");	
+				U1_printf("版本号格式错误\r\n");	
 			}
 		}
 		else																			//判断版本号长度是否错误
 		{
-			U1_printf("Bad version length\r\n");	
+			U1_printf("版本号长度错误\r\n");	
 		}
 	}
 	
@@ -213,17 +213,17 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 				UpDataA.XmodemNum = 0;													//保持接收Xmodem协议数据包个数的变量清零
 				OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] = 0;							//W25Q64的块标号对应的程序大小变量清零
 				W25Q64_Erase64K(UpDataA.W25Q64_BlockNum);								//擦除相应的W25Q64块
-				U1_printf("Downloading to W25Q64 block %d via Xmodem, please send a .bin file\r\n", UpDataA.W25Q64_BlockNum);	//串口输出信息
+				U1_printf("通过Xmodem协议，向W25Q64第%d个块下载程序，请使用bin格式文件\r\n", UpDataA.W25Q64_BlockNum);	//串口输出信息
 				BootStaFlag &=~ W25Q64_DoLo_FLAG;										//清除标志位
 			}
 			else																		//判断W25Q64的块标号，范围1-9，错误进入else，串口输出信息
 			{
-				U1_printf("Bad block number\r\n");
+				U1_printf("编号错误\r\n");
 			}
 		}
 		else																			//判断数据长度，不是1的话错误进入else，串口输出信息
 		{
-			U1_printf("Bad data length\r\n");
+			U1_printf("数据长度错误\r\n");
 		}
 	}
 	
@@ -240,12 +240,12 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 			}
 			else																		//判断W25Q64的块标号，范围1-9，错误进入else，串口输出信息
 			{
-				U1_printf("Bad block number\r\n");
+				U1_printf("编号错误\r\n");
 			}
 		}
 		else																			//判断数据长度，不是1的话错误进入else，串口输出信息
 		{
-			U1_printf("Bad data length\r\n");
+			U1_printf("数据长度错误\r\n");
 		}
 	}
 }
@@ -270,7 +270,7 @@ void LOAD_A(uint32_t address)
 	}
 	else
 	{
-		U1_printf("Jump to region A failed\r\n");
+		U1_printf("跳转A区失败\r\n");
 	}
 }
 
