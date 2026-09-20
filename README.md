@@ -228,6 +228,9 @@ python scripts/xmodem_send.py --port COM8 --file "别的固件.bin"
 > 连 `pause` 都执行不到。所以中文提示全部由 Python 脚本输出，批处理本身只做转发；
 > 默认固件路径也放在 Python 里解析（Python 处理中文路径没有问题）。
 
+**已实测**：用 `flash.bat` 完成过一次完整升级 —— 自动进入 Xmodem 模式、
+102 包全部 ACK、零重传、826 字节/秒，复位后 A 区程序正常运行。
+
 实现要点：CRC-16/XMODEM（初值 0x0000、多项式 0x1021），与 `boot.c` 的
 `Xmodem_CRC16()` 逐位等价，并用 `binascii.crc_hqx` 交叉验证过。
 超时若一直收不到 ACK，脚本会打印**超时期间收到的其它字节** ——
