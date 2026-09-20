@@ -1,0 +1,38 @@
+# ============ Keil MDK 编译产物 ============
+Objects/
+Listings/
+DebugConfig/
+RTE/
+*.o
+*.crf
+*.d
+*.dep
+*.axf
+*.elf
+*.hex
+*.bin
+*.lnp
+*.sct
+*.map
+*.lst
+*.i
+*.iex
+*.bak
+*_sct.Bak
+*.htm
+*.build_log.htm
+
+# ============ Keil 用户/界面状态（跟人不跟项目）============
+*.uvguix.*
+*.uvoptx
+*.scvd
+JLinkLog.txt
+JLinkSettings.ini
+
+# ============ 本次调试留下的本地辅助目录 ============
+# 原始文件备份（内容与仓库里的源文件重复）
+_backup_*/
+# 一次性改写脚本（已执行完毕，成果已落到源码里）
+_tools/
+# 其它工具的本地状态
+.zcode/
