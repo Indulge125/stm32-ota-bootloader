@@ -31,6 +31,11 @@ try:
 except ImportError:
     sys.exit("缺少 pyserial，请先执行：pip install pyserial")
 
+# 仓库根目录（本脚本在 scripts/ 下）—— 用来解析默认固件路径。
+# 默认路径里含中文，所以放在 Python 里解析，不写进 .bat（cmd 解析含中文的批处理会出错）。
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_FW = os.path.join("1.1-(A区)串口测试程序", "Objects", "Project.bin")
+
 SOH, EOT, ACK, NAK, CAN, SUB = 0x01, 0x04, 0x06, 0x15, 0x18, 0x1A
 CRC_REQ = 0x43  # 'C'，接收方请求 CRC 模式
 BLOCK = 128
@@ -172,17 +177,21 @@ def send_file(ser, path, log):
 def main():
     ap = argparse.ArgumentParser(description="Xmodem-CRC 固件发送工具")
     ap.add_argument("--port", required=True, help="串口号，如 COM8")
-    ap.add_argument("--file", required=True, help="要发送的 .bin 文件")
+    ap.add_argument("--file", default=None,
+                    help="要发送的 .bin 文件（默认：A 区工程编出来的 Project.bin）")
     ap.add_argument("--baud", type=int, default=9600, help="波特率（默认 9600，与 BootLoader 一致）")
     args = ap.parse_args()
 
     def log(msg):
         print(msg, flush=True)
 
-    if not os.path.exists(args.file):
-        sys.exit("找不到文件：%s" % args.file)
-    if os.path.getsize(args.file) == 0:
-        sys.exit("文件是空的：%s" % args.file)
+    fw = args.file if args.file else os.path.join(REPO_ROOT, DEFAULT_FW)
+    if not os.path.exists(fw):
+        sys.exit("找不到固件文件：%s" + chr(10) +
+                 "（先在 Keil 里编译 1.1-(A区)串口测试程序，或用 --file 指定）" % fw)
+    if os.path.getsize(fw) == 0:
+        sys.exit("文件是空的：%s" % fw)
+    log("固件 : %s (%d 字节)" % (fw, os.path.getsize(fw)))
 
     self_test()
 
@@ -196,7 +205,7 @@ def main():
         if not arm_bootloader(ser, log):
             sys.exit("没能让 BootLoader 进入 Xmodem 模式。\n"
                      "  检查：① 板子是否已烧好 BootLoader ② 串口号是否为 %s ③ 关掉其它占用串口的程序" % args.port)
-        size, blocks = send_file(ser, args.file, log)
+        size, blocks = send_file(ser, fw, log)
 
         log("发送 EOT ...")
         for _ in range(10):

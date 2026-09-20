@@ -214,13 +214,19 @@ scripts/
   flash.bat         双击即用：默认 COM8 + 默认 A 区固件
 ```
 
-**双击运行**：`scripts\flash.bat`（脚本会提示你按板子复位键）
+**双击运行**：`scripts\flash.bat`（会自动找默认固件，并提示你按板子复位键）
 
-**命令行**：
+**命令行**（`--file` 可省略，默认用 A 区工程编出来的 `Project.bin`）：
 
 ```
-python scripts/xmodem_send.py --port COM8 --file "1.1-(A区)串口测试程序/Objects/Project.bin"
+python scripts/xmodem_send.py --port COM8
+python scripts/xmodem_send.py --port COM8 --file "别的固件.bin"
 ```
+
+> ⚠️ **`flash.bat` 是纯 ASCII 的，不是漏写中文** —— cmd.exe 按当前代码页逐行解析
+> `.bat` 文件，内容里出现多字节字符（中文）会让它**中途中止**，表现为窗口一闪就关、
+> 连 `pause` 都执行不到。所以中文提示全部由 Python 脚本输出，批处理本身只做转发；
+> 默认固件路径也放在 Python 里解析（Python 处理中文路径没有问题）。
 
 实现要点：CRC-16/XMODEM（初值 0x0000、多项式 0x1021），与 `boot.c` 的
 `Xmodem_CRC16()` 逐位等价，并用 `binascii.crc_hqx` 交叉验证过。
