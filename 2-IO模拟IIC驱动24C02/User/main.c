@@ -33,7 +33,7 @@ int main(void)
 	
 	for(i = 0; i <256; i ++)
 	{
-		U1_printf("хпои%d = %x\r\n", i, buff[i]);
+		U1_printf("Data%d = %x\r\n", i, buff[i]);
 	}
 	
 	while(1)

@@ -23,13 +23,13 @@ static const char *LineState(uint8_t pull, uint8_t forced, uint8_t mask)
 {
 	if((pull & mask) != 0)
 	{
-		return "正常";
+		return "OK";
 	}
 	if((forced & mask) != 0)
 	{
-		return "接到GND了";
+		return "tied to GND";
 	}
-	return "悬空(没接)";
+	return "floating(open)";
 }
 
 /* ================= AT24C02 专项诊断 =================  */
@@ -113,40 +113,40 @@ static void AT24C02_Diag(void)
 	OLED_ShowNum(4, 11, forced, 1);				/* 非 0 表示有线上连内部上拉都拉不起来 */
 
 	/* ⑨ 串口详解 */
-	U1_printf("\r\n----- AT24C02 诊断 -----\r\n");
-	U1_printf("空闲电平 : SCL=%d SDA=%d  (都应为 1)\r\n",
+	U1_printf("\r\n----- AT24C02 Diagnostic -----\r\n");
+	U1_printf("Idle level  : SCL=%d SDA=%d  (both should read 1)\r\n",
 	          (pins >> 1) & 1, pins & 1);
-	U1_printf("上拉探针 : SCL=%d SDA=%d  (把引脚临时配成内部下拉输入再读；\r\n",
+	U1_printf("Pull-up probe: SCL=%d SDA=%d  (pin set to input pull-down, then read;\r\n",
 	          (pull >> 1) & 1, pull & 1);
-	U1_printf("            该线若挂有 4.7k 上拉会强于内部 40k 下拉，读到 1)\r\n");
-	U1_printf("拉地探针 : SCL=%d SDA=%d  (换成内部上拉输入再读；读到 0 说明该线被硬拉在地)\r\n",
+	U1_printf("            1 = an external 4.7k pull-up beats the internal 40k pull-down)\r\n");
+	U1_printf("GND probe   : SCL=%d SDA=%d  (input pull-up instead; 0 = line hard-pulled to GND)\r\n",
 	          (forced >> 1) & 1, forced & 1);
-	U1_printf("接线状态 : SCL(PB10)=%s  SDA(PB11)=%s\r\n",
+	U1_printf("Wiring      : SCL(PB10)=%s  SDA(PB11)=%s\r\n",
 	          LineState(pull, forced, 0x02), LineState(pull, forced, 0x01));
-	U1_printf("地址扫描 : 共 %d 个器件应答\r\n", n);
+	U1_printf("Address scan: %d device(s) responded\r\n", n);
 	for(i = 0; (i < n) && (i < 8); i ++)
 	{
 		if(found[i] == AT24C02_WADDR)
 		{
-			U1_printf("  0x%02X <-- AT24C02 的正确地址\r\n", found[i]);
+			U1_printf("  0x%02X <-- correct address of AT24C02\r\n", found[i]);
 		}
 		else
 		{
 			U1_printf("  0x%02X\r\n", found[i]);
 		}
 	}
-	U1_printf("对调扫描 : 共 %d 个器件应答 (把 SCL/SDA 角色对调后再扫)\r\n", n2);
+	U1_printf("Swapped scan: %d device(s) responded (SCL/SDA roles exchanged)\r\n", n2);
 	if(shrt == 0x04)
 	{
-		U1_printf("短接检测 : 无效 (有线释放后不为高，判断不了短接)\r\n");
+		U1_printf("Short test  : invalid (a line did not go high when released)\r\n");
 	}
 	else
 	{
-		U1_printf("短接检测 : %d  (bit1=拉低SCL时SDA跟着低, bit0=拉低SDA时SCL跟着低; 0=没短接)\r\n", shrt);
+		U1_printf("Short test  : %d  (bit1=SDA follows SCL low, bit0=SCL follows SDA low; 0=no short)\r\n", shrt);
 	}
-	U1_printf("写测试   : WriteByte=%d  (1=器件地址无ACK 2=字地址无ACK 3=数据无ACK 0=正常)\r\n", w_ret);
-	U1_printf("读测试   : ReadData =%d  (0=正常)\r\n", r_ret);
-	U1_printf("回读     : 写入0x5A读出0x%02X  (期望 0x5A)\r\n", ee_read);
+	U1_printf("Write test  : WriteByte=%d  (1=no ACK on dev addr, 2=on word addr, 3=on data; 0=OK)\r\n", w_ret);
+	U1_printf("Read test   : ReadData =%d  (0=OK)\r\n", r_ret);
+	U1_printf("Read-back   : wrote 0x5A, read 0x%02X  (expect 0x5A)\r\n", ee_read);
 
 	/* ⑩ 结论 —— 按「最有指向性」的顺序判 */
 	bad = 0;
@@ -155,11 +155,11 @@ static void AT24C02_Diag(void)
 		bad = 1;
 		if((forced & 0x02) != 0)
 		{
-			U1_printf("==> SCL(PB10) 被硬拉在地：这根线接到 GND 上了\r\n");
+			U1_printf("==> SCL(PB10) is hard-pulled to GND: this wire goes to GND\r\n");
 		}
 		else
 		{
-			U1_printf("==> SCL(PB10) 悬空：模块的 SCL 没接到 PB10 上\r\n");
+			U1_printf("==> SCL(PB10) is floating: module SCL is not connected to PB10\r\n");
 		}
 	}
 	if((pull & 0x01) == 0)
@@ -167,19 +167,19 @@ static void AT24C02_Diag(void)
 		bad = 1;
 		if((forced & 0x01) != 0)
 		{
-			U1_printf("==> SDA(PB11) 被硬拉在地：这根线接到 GND 上了\r\n");
+			U1_printf("==> SDA(PB11) is hard-pulled to GND: this wire goes to GND\r\n");
 		}
 		else
 		{
-			U1_printf("==> SDA(PB11) 悬空：模块的 SDA 没接到 PB11 上\r\n");
+			U1_printf("==> SDA(PB11) is floating: module SDA is not connected to PB11\r\n");
 		}
 	}
 
 	if(bad != 0)
 	{
-		U1_printf("    有线没接好时，上面的地址扫描结果不可信 ——\r\n");
-		U1_printf("    悬空的线读到的是随机值，会让扫描产生假应答。先把线接对再看扫描结果。\r\n");
-		U1_printf("    查：杜邦线是否插到底、是否插在 PB10/PB11 这一排、有没有误插到 GND 排针\r\n");
+		U1_printf("    With a bad wire the scan result above is NOT trustworthy --\r\n");
+		U1_printf("    a floating line reads random values and causes false ACKs. Fix wiring first.\r\n");
+		U1_printf("    Check: jumper fully seated, on the PB10/PB11 row, not on a GND pin by mistake\r\n");
 	}
 	else if(n > 0)
 	{
@@ -187,39 +187,39 @@ static void AT24C02_Diag(void)
 		{
 			if((w_ret == 0) && (r_ret == 0) && (ee_read != 0x5A))
 			{
-				U1_printf("==> 地址对、写和读都没报错，但写进去读不回 —— WP 被拉高的典型现象。\r\n");
-				U1_printf("    WP 高电平时器件照样 ACK，返回码全是 0，但数据写不进存储阵列。\r\n");
-				U1_printf("    把 WP 的跳线帽也挪到 GND 那一侧（三针块：跨右两针）。\r\n");
+				U1_printf("==> Address OK, write and read both report no error, but data does not stick --\r\n");
+				U1_printf("    classic sign of WP held HIGH: the chip still ACKs, yet nothing is stored.\r\n");
+				U1_printf("    Move the WP jumper to the GND side too (3-pin block: jumper the right pair).\r\n");
 			}
 			else
 			{
-				U1_printf("==> 器件已在正确地址 0xA0 应答；读写仍失败的话看 W/R 返回码\r\n");
+				U1_printf("==> Device answers at the correct address 0xA0; see W/R codes if R/W still fails\r\n");
 			}
 		}
 		else
 		{
-			U1_printf("==> 器件在 0x%02X 而不是 0xA0：A0/A1/A2 没全接地\r\n", found[0]);
-			U1_printf("    (A0/A1/A2 三个脚都要接 GND，全接地才是 0xA0)\r\n");
+			U1_printf("==> Device is at 0x%02X, not 0xA0: A0/A1/A2 are not all tied to GND\r\n", found[0]);
+			U1_printf("    (all three of A0/A1/A2 must be tied to GND; only then is the address 0xA0)\r\n");
 		}
 	}
 	else if(n2 > 0)
 	{
-		U1_printf("==> 把 SCL/SDA 角色对调后扫到了 0x%02X：两根线接反了\r\n", found[0]);
-		U1_printf("    把模块的 SCL/SDA 两根线对调（模块SCL->PB10，模块SDA->PB11）\r\n");
+		U1_printf("==> Found 0x%02X after swapping SCL/SDA roles: the two wires are reversed\r\n", found[0]);
+		U1_printf("    Swap the two wires (module SCL -> PB10, module SDA -> PB11)\r\n");
 	}
 	else if((shrt & 0x03) != 0)
 	{
-		U1_printf("==> 两根线互相短接 (Sh=%d)：一根的低电平把另一根也拉低了\r\n", shrt & 0x03);
-		U1_printf("    查杜邦线是否插错到同一排的相邻位置、模块上是否连锡\r\n");
+		U1_printf("==> SCL and SDA are shorted (Sh=%d): one line drags the other low\r\n", shrt & 0x03);
+		U1_printf("    Check for a jumper on a wrong adjacent pin, or a solder bridge on the module\r\n");
 	}
 	else
 	{
-		U1_printf("==> 两根线都正常接通、没有短接、也没有接反，但任何地址都不应答。\r\n");
-		U1_printf("    问题在 AT24C02 芯片本身：\r\n");
-		U1_printf("    ① 芯片在 8P 座上是否插到底（直插座接触不良很常见）\r\n");
-		U1_printf("    ② 方向有没有插反：缺口/圆点那一端要对准座子的缺口\r\n");
-		U1_printf("    ③ 逐个插槽位置比对模块丝印，确认没插偏一格\r\n");
-		U1_printf("    ④ 换一颗 AT24C02 试（芯片可能已损坏）\r\n");
+		U1_printf("==> Both wires are connected, no short, not reversed -- yet nothing answers.\r\n");
+		U1_printf("    The problem is the AT24C02 chip itself:\r\n");
+		U1_printf("    1) Is the chip fully seated in the 8-pin socket? (bad contact is common)\r\n");
+		U1_printf("    2) Orientation: the notch/dot end must match the notch on the socket\r\n");
+		U1_printf("    3) Compare each socket position with the silkscreen -- off by one pin?\r\n");
+		U1_printf("    4) Try another AT24C02 (the chip may be damaged)\r\n");
 	}
 	U1_printf("------------------------\r\n");
 }
@@ -258,7 +258,7 @@ static void HW_SelfTest(void)
 	OLED_ShowString(1, 8, "DID:");
 	OLED_ShowHexNum(1, 12, DID, 4);				/* 正常应显示 4017 */
 
-	U1_printf("自检: W25Q64 MID=0x%02X DID=0x%04X\r\n", MID, DID);
+	U1_printf("Self-test: W25Q64 MID=0x%02X DID=0x%04X\r\n", MID, DID);
 
 	/* ---- 2. AT24C02 读写回环 ---- */
 	AT24C02_ReadData(0xF0, &ee_backup, 1);			/* 先备份原值 */
@@ -275,7 +275,7 @@ static void HW_SelfTest(void)
 		OLED_ShowString(2, 1, "EE24C02:OK");
 		OLED_ShowString(3, 1, "Flag:");
 		OLED_ShowHexNum(3, 6, OTA_Info.OTA_Flag, 8);
-		U1_printf("自检: AT24C02=OK, OTA_Flag=0x%08X\r\n", OTA_Info.OTA_Flag);
+		U1_printf("Self-test: AT24C02=OK, OTA_Flag=0x%08X\r\n", OTA_Info.OTA_Flag);
 	}
 	else
 	{
@@ -329,7 +329,7 @@ int main(void)
 		/* UpData_A_Flag 置位，表明需要更新A区 */
 		if(BootStaFlag & UpData_A_Flag)
 		{
-			U1_printf("长度%d字节\r\n", OTA_Info.FileLen[UpDataA.W25Q64_BlockNum]);							//串口1输出信息
+			U1_printf("Length: %d bytes\r\n", OTA_Info.FileLen[UpDataA.W25Q64_BlockNum]);							//串口1输出信息
 			if(OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 4 == 0)											//判断长度是否是4的整数，是的话进入if
 			{
 				MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);								//擦除A区FLASH
@@ -348,12 +348,12 @@ int main(void)
 					OTA_Info.OTA_Flag = 0;			//设置OTA_Flag，只要不是OTA_SET_FLAG定义的值即可
 					AT24C02_WriteOTAInfo();			//写入24c02中保存
 				}
-				U1_printf("A区更新完毕\r\n");		//串口1输出信息
+				U1_printf("Region A update complete\r\n");		//串口1输出信息
 				NVIC_SystemReset();					//重启
 			}
 			else									//判断长度是否是4的整数倍，不是的话进入else
 			{
-				U1_printf("长度错误\r\n");			//串口1输出信息
+				U1_printf("Length error\r\n");			//串口1输出信息
 				BootStaFlag &=~ UpData_A_Flag;		//清除UpData_A_Flag标志位
 			}
 		}
