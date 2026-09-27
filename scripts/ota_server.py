@@ -54,6 +54,22 @@ def main():
     conn, addr = srv.accept()
     print("设备已连接: %s:%d" % addr)
     print()
+    print("等设备发来请求再开始（避免它在接收循环外时白丢数据）...")
+
+    # ⚠️ 关键：不能一连上就发。
+    # 设备在 "9 连服务器" 时就建立了 TCP 连接，但那时它还在菜单里、
+    # 没进接收循环 —— 这期间发出去的数据没人接，会整段丢掉。
+    # 实测症状：13000 字节只收到 5576，而且丢的正好是开头 7424 字节（连续一整段）。
+    # 所以先等设备主动发一个请求（[t] 命令会先发 PING），收到后再开始。
+    conn.settimeout(60)
+    try:
+        hello = conn.recv(64)
+    except socket.timeout:
+        print("!! 等 60 秒没等到设备请求，直接开发（可能会丢开头）")
+        hello = b""
+    if hello:
+        print("收到设备请求: %r" % hello)
+    print()
 
     sent = 0
     t0 = time.time()
