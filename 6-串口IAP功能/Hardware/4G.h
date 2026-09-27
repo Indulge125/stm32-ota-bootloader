@@ -23,8 +23,6 @@
 #define G4_TX_PIN           GPIO_Pin_2
 #define G4_RX_PORT          GPIOA
 #define G4_RX_PIN           GPIO_Pin_3
-#define G4_RST_PORT         GPIOB
-#define G4_RST_PIN          GPIO_Pin_2
 
 #define G4_BAUD_DEFAULT     115200
 

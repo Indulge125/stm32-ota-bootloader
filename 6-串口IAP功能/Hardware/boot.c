@@ -2,6 +2,7 @@
 #include "Delay.h"
 #include "OLED.h"
 #include "usart.h"
+#include "4G.h"
 #include "MyFLASH.h"
 #include "main.h"
 #include "iic.h"
@@ -56,7 +57,8 @@ void BootLoader_Info(void)
 	U1_printf("[4]查询OTA版本号\r\n");	
 	U1_printf("[5]向外部FLASH下载程序\r\n");	
 	U1_printf("[6]使用外部FLASH内程序\r\n");	
-	U1_printf("[7]重启\r\n");	
+	U1_printf("[7]重启\r\n");
+	U1_printf("[0]ESP8266 AT 自测\r\n");	
 }
 
 /* BootLoader处理串口数据 */
@@ -112,6 +114,23 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 		{
 			U1_printf("使用外部FLASH内的程序，输入需要使用的块编号（1-9）\r\n");			//串口输出信息
 			BootStaFlag |= W25Q64_To_Flash_Dolo_FLAG;									//置位 W25Q64_To_Flash_Dolo_FLAG 标志位
+		}
+		else if((datalen == 1) && (data[0] == '0'))										//AT 自测：只验证 ESP8266 通信，不涉及 OTA
+		{
+			U1_printf("ESP8266 AT 通信自测（115200）...\r\n");
+			G4_Init(G4_BAUD_DEFAULT);										//初始化 USART2 + PB2 复位脚
+			if(G4_AT_Test() == G4_OK)
+			{
+				U1_printf("[结果] AT 通信正常\r\n");
+			}
+			else
+			{
+				U1_printf("[结果] AT 无应答 —— 依次查：\r\n");
+				U1_printf("  1) 模组里是不是 AT 固件（USB 接电脑 115200 发 AT 应回 OK）\r\n");
+				U1_printf("  2) 模块 TXD->PA3、RXD->PA2，别接反\r\n");
+				U1_printf("  3) 模组供电是否够（3.3V，峰值电流大）\r\n");
+			}
+			BootLoader_Info();										//回到菜单
 		}
 		else if((datalen == 1) && (data[0] == '7'))										//如果数据长度1字节且字符是6
 		{
@@ -293,7 +312,13 @@ void LOAD_A(uint32_t address)
 
 void BootLoader_Clear(void)
 {
+	/* 关中断再反初始化：跳转后 VTOR 指向 A 区向量表，
+	 * A 区没有 USART1/USART2 的中断服务函数，
+	 * 残留中断一触发就会进启动文件的 Default_Handler（死循环）→ A 区挂住。 */
+	NVIC_DisableIRQ(USART1_IRQn);
+	NVIC_DisableIRQ(USART2_IRQn);
 	USART_DeInit(USART1);
+	USART_DeInit(USART2);
 	GPIO_DeInit(GPIOA);
 	GPIO_DeInit(GPIOB);
 }
