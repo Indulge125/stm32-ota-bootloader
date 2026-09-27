@@ -90,6 +90,32 @@ int main(int argc, char **argv)
 	c = 0x0000;
 	printf("empty %%04X\n", Xmodem_CRC16_Update(c, buf, 0));
 
+	/* 随机切片：用不同的伪随机批量反复续算，结果必须与整段一致。
+	 * 为什么需要：固件里每批的字数不是固定的（取决于 +IPD 怎么切、页缓冲剩多少），
+	 * 如果增量实现对某些批量大小算错，只有当批大小正好踩中时才会暴露 ——
+	 * 固定几组切片是测不出来的。 */
+	{
+		int k, bad = 0;
+		uint16_t whole = Xmodem_CRC16(buf, (uint32_t)n);
+		for(k = 1; k <= 300; k ++)
+		{
+			uint32_t seed = (uint32_t)k * 2654435761u, off = 0;
+			uint16_t rc = 0x0000;
+			while(off < (uint32_t)n)
+			{
+				uint32_t m;
+				seed = seed * 1103515245u + 12345u;
+				m = ((seed >> 16) %% 2048u) + 1u;          /* 1..2048，覆盖页缓冲各种剩余量 */
+				if(m > (uint32_t)n - off) m = (uint32_t)n - off;
+				rc = Xmodem_CRC16_Update(rc, buf + off, m);
+				off += m;
+			}
+			if(rc != whole) bad ++;
+		}
+		printf("rand  %%s  (300 组随机切片，批量 1..2048)\n", bad ? "★ 有错" : "一致");
+		if(bad) return 5;
+	}
+
 	free(buf);
 	return 0;
 }
@@ -109,12 +135,23 @@ self_test()
 data = open(BIN, "rb").read()
 print("测试数据：%s（%d 字节）" % (os.path.basename(BIN), len(data)))
 
-r = subprocess.run([exe, BIN], capture_output=True, text=True)
+r = subprocess.run([exe, BIN], capture_output=True, text=True,
+                   encoding="utf-8", errors="replace")
 got = {}
+rand_ok = None
 for line in r.stdout.splitlines():
-    k, v = line.split()
-    got[k] = int(v, 16)
+    parts = line.split()
+    if len(parts) == 2 and len(parts[1]) == 4:
+        try:
+            got[parts[0]] = int(parts[1], 16)
+        except ValueError:
+            pass
+    elif parts[:1] == ["rand"]:
+        rand_ok = ("★" not in line)
+        print("  随机切片                     %s" % line[len("rand"):].strip())
 print("C 侧结果：%s" % {k: "0x%04X" % v for k, v in got.items()})
+if rand_ok is not True:
+    _fail.append("随机切片（300 组批量 1..2048）")
 
 want = crc16_xmodem(data)
 print("Python 结果：0x%04X" % want)
