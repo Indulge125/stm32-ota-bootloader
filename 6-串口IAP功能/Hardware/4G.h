@@ -68,6 +68,14 @@ uint8_t G4_Connect(const char *ssid, const char *pass,
                    const char *host, uint16_t port);
 
 uint16_t G4_RxLen(void);
+void     G4_RxDrop(uint16_t n);     /* 从缓冲头部丢弃 n 字节 */
+
+/* ---------- +IPD 流式解析（4b-2 收固件用） ----------
+ * ESP8266 AT 模式收到 TCP 数据会吐 +IPD,<长度>:<原始字节>。
+ * 这两层要分开：信封（+IPD/长度）按文本解析，载荷（固件）按长度当纯字节流。
+ * 绝不按内容找边界 —— 固件里可能出现 "+IPD"、OK、\0。 */
+void     G4_PayloadReset(void);
+uint8_t  G4_PayloadGet(uint8_t *out);   /* 1=取到一个载荷字节，0=暂时没有 */
 /* 【4a 联调用】等待一段 +IPD 数据并打印出来（长度 + 内容）。
  * 返回 G4_OK 表示收到，G4_ERR_TIMEOUT 表示超时。
  * 只适合小段数据（接收缓冲 512 字节）；收大固件要走流式处理。 */

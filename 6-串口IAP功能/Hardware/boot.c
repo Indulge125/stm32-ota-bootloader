@@ -62,7 +62,7 @@ void BootLoader_Info(void)
 	U1_printf("[0]ESP8266 AT 自测\r\n");
 	U1_printf("[8]连WiFi\r\n");
 	U1_printf("[9]连服务器\r\n");
-	U1_printf("[t]接收测试(4a)\r\n");	
+	U1_printf("[t]接收测试(4b-2a)\r\n");	
 }
 
 /* BootLoader处理串口数据 */
@@ -186,7 +186,7 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 			}
 
 			/* 再测接收方向 */
-			U1_printf("再等服务器回数据（30 秒）...\r\n");
+			U1_printf("20 秒内把所有收到的东西发过来（看到\"共收到 N 字节\"即结束）...\r\n");
 			if(G4_RxTest(30000) == G4_OK)
 			{
 				U1_printf("[结果] 收发双向都正常\r\n");

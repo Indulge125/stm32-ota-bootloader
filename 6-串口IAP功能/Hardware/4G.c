@@ -163,78 +163,196 @@ void G4_ClearRx(void)
 	memset(s_rxBuf, 0, G4_RX_SIZE);
 }
 
-/* ================= 【4a 联调用】+IPD 接收测试 =================
- * AT 模式下模组收到 TCP 数据会吐出：  +IPD,<长度>:<原始字节>
- * 长度是十进制文本，冒号之后就是要按字节数取走的载荷。
+/* ================= 流式消费接口（4b-2） ================= */
+
+/* 从接收缓冲头部丢弃 n 字节。流式解析靠它把已处理的字节移出去，
+ * 否则缓冲很快堆满、新数据进不来（表现为"传着传着就不动了"）。
  *
- * 本函数在接收缓冲里找 +IPD，解析长度，等载荷到齐后打印出来。
- * ⚠️ 只适合小段数据（G4_RX_SIZE = 512）；收真实固件必须改成
- *    边收边写 W25Q64 的流式处理，不能靠这个缓冲兜。
+ * s_rxLen 由 USART2 中断更新，搬移期间必须关中断，否则：
+ *   中断在搬移中途插进来 -> s_rxLen 变了 -> 搬到一半的数据错位。
+ * 搬 512 字节约几微秒，而 115200 下 87us 才来一个字节 —— 关得住，不丢字节。 */
+void G4_RxDrop(uint16_t n)
+{
+	uint16_t i;
+	if(n == 0) return;
+
+	NVIC_DisableIRQ(USART2_IRQn);
+	if(n >= s_rxLen)
+	{
+		s_rxLen = 0;
+		NVIC_EnableIRQ(USART2_IRQn);
+		return;
+	}
+	for(i = 0; i + n < s_rxLen; i ++)
+	{
+		s_rxBuf[i] = s_rxBuf[i + n];
+	}
+	s_rxLen -= n;
+	NVIC_EnableIRQ(USART2_IRQn);
+}
+
+/* +IPD 解析状态：0=在找信封 2=正在收载荷 */
+static uint8_t  s_ipdState = 0;
+static uint32_t s_ipdRemain = 0;
+
+void G4_PayloadReset(void)
+{
+	s_ipdState  = 0;
+	s_ipdRemain = 0;
+	G4_ClearRx();
+}
+
+/* 取下一个纯载荷字节（自动剥掉 +IPD,<len>: 信封）。
+ * 返回 1=取到，0=暂时没有数据。
+ *
+ * 关键点：只有在"两个信封之间"才去找 "+IPD,"；
+ * 一旦进入载荷，就严格按长度数，总共取 s_ipdRemain 个字节。
+ * 这样载荷里出现 "+IPD" 也不会被误当成信封。 */
+uint8_t G4_PayloadGet(uint8_t *out)
+{
+	uint8_t  *b;
+	uint16_t  n, i, j;
+	uint32_t  len;
+
+	n = G4_RxLen();
+	if(n == 0) return 0;
+
+	/* --- 正在收载荷：直接取走 1 字节 --- */
+	if(s_ipdState == 2)
+	{
+		b = (uint8_t *)G4_RxBuf();
+		*out = b[0];
+		G4_RxDrop(1);
+		s_ipdRemain --;
+		if(s_ipdRemain == 0)
+		{
+			s_ipdState = 0;			/* 本包装完，回到找信封 */
+		}
+		return 1;
+	}
+
+	/* --- 找信封 "+IPD," --- */
+	b = (uint8_t *)G4_RxBuf();
+	for(i = 0; (uint32_t)i + 5 <= n; i ++)
+	{
+		if(memcmp(&b[i], "+IPD,", 5) == 0) break;
+	}
+	if((uint32_t)i + 5 > n)
+	{
+		/* 没找到完整信封：丢掉绝大部分，只留最后 4 字节（可能是半个 "+IPD"） */
+		if(n > 4) G4_RxDrop(n - 4);
+		return 0;
+	}
+	if(i > 0)
+	{
+		G4_RxDrop(i);				/* 丢掉信封之前的杂字节 */
+	}
+
+	/* --- 解析十进制长度，直到 ':' --- */
+	b = (uint8_t *)G4_RxBuf();
+	n = G4_RxLen();
+	len = 0;
+	j = 5;
+	while((j < n) && (b[j] >= '0') && (b[j] <= '9'))
+	{
+		len = len * 10 + (uint32_t)(b[j] - '0');
+		j ++;
+	}
+	if(j >= n)
+	{
+		return 0;					/* 长度还没收全，等下一批 */
+	}
+	if(b[j] != ':')
+	{
+		G4_RxDrop(5);				/* 格式不对，丢掉 "+IPD," 重来 */
+		return 0;
+	}
+	G4_RxDrop(j + 1);				/* 丢掉 "+IPD,<len>:" 整个信封 */
+
+	if(len == 0)
+	{
+		return 0;
+	}
+	s_ipdRemain = len;
+	s_ipdState  = 2;
+	return 0;						/* 下一轮调用才真正取字节 */
+}
+
+/* ================= 【4b-2a】流式 +IPD 接收测试 =================
+ * 20 秒内把所有载荷字节累加，结束时打印摘要：
+ *   总字节数 + 前 32 字节 + 后 32 字节
+ *
+ * 为什么不打印全部：调试串口 9600bps，14KB 的十六进制要打 45 秒，
+ * 而且打印会把接收循环卡住 -> 缓冲溢出 -> 丢数据。摘要足够判断对错。
  */
 uint8_t G4_RxTest(uint32_t timeout_ms)
 {
-	uint8_t  *b;
-	uint16_t  n, i, j, k;
-	uint32_t  len;
-	uint32_t  waited = 0;
+	uint8_t  byte;
+	uint8_t  first[32];
+	uint8_t  last[32];
+	uint16_t fcnt = 0;
+	uint16_t i;
+	uint32_t total = 0;
+	uint32_t waited = 0;
+	uint32_t quiet  = 0;			/* 连续没收到数据的时长 */
 
-	G4_ClearRx();
+	G4_PayloadReset();
 
-	while(waited < timeout_ms)
+	while((waited < timeout_ms) && (quiet < 3000))
 	{
-		b = (uint8_t *)G4_RxBuf();
-		n = G4_RxLen();
-
-		/* 在缓冲里找 "+IPD," */
-		for(i = 0; (uint32_t)i + 5 <= n; i ++)
+		if(G4_PayloadGet(&byte))
 		{
-			if(memcmp(&b[i], "+IPD,", 5) != 0)
+			if(fcnt < 32)
 			{
-				continue;
+				first[fcnt ++] = byte;	/* 记开头 */
 			}
-
-			/* 解析十进制长度，直到 ':' */
-			len = 0;
-			j = i + 5;
-			while((j < n) && (b[j] >= '0') && (b[j] <= '9'))
-			{
-				len = len * 10 + (uint32_t)(b[j] - '0');
-				j ++;
-			}
-			if((j >= n) || (b[j] != ':'))
-			{
-				continue;					/* 长度还没收全，继续等 */
-			}
-			j ++;							/* 跳过 ':' */
-
-			if((uint32_t)(n - j) < len)
-			{
-				continue;					/* 载荷还没到齐，继续等 */
-			}
-
-			/* 载荷到齐了 */
-			U1_printf("[IPD] 收到 %u 字节: ", (unsigned int)len);
-			for(k = 0; k < len; k ++)
-			{
-				if((b[j + k] >= 0x20) && (b[j + k] < 0x7F))
-				{
-					U1_printf("%c", b[j + k]);
-				}
-				else
-				{
-					U1_printf("\\x%02X", b[j + k]);		/* 非可见字节用十六进制 */
-				}
-			}
-			U1_printf("\r\n");
-			return G4_OK;
+			/* 环形记最后 32 字节 */
+			last[total % 32] = byte;
+			total ++;
+			quiet = 0;
 		}
-
-		Delay_ms(20);
-		waited += 20;
+		else
+		{
+			Delay_ms(5);
+			waited += 5;
+			quiet  += 5;
+		}
 	}
 
-	U1_printf("[IPD] 超时：%ums 内没收到 +IPD\r\n", (unsigned int)timeout_ms);
-	return G4_ERR_TIMEOUT;
+	if(total == 0)
+	{
+		U1_printf("[IPD] 一个载荷字节都没收到\r\n");
+		return G4_ERR_TIMEOUT;
+	}
+
+	U1_printf("[IPD] 共收到 %u 字节\r\n", (unsigned int)total);
+
+	U1_printf("  开头 %u 字节: ", (unsigned int)fcnt);
+	for(i = 0; i < fcnt; i ++)
+	{
+		U1_printf("%02X ", first[i]);
+	}
+	U1_printf("\r\n");
+
+	U1_printf("  结尾 (按收到顺序): ");
+	if(total <= 32)
+	{
+		for(i = 0; i < (uint16_t)total; i ++)
+		{
+			U1_printf("%02X ", last[i]);
+		}
+	}
+	else
+	{
+		/* last[] 是环形缓冲，从 total%32 处开始才是正确的先后顺序 */
+		for(i = 0; i < 32; i ++)
+		{
+			U1_printf("%02X ", last[(total + i) % 32]);
+		}
+	}
+	U1_printf("\r\n");
+
+	return G4_OK;
 }
 
 uint16_t G4_RxLen(void)
