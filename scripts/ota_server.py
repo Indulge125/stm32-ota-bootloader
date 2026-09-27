@@ -53,6 +53,9 @@ def main():
     ap.add_argument("--file", default=None, help="要下发的固件（默认 A 区工程的 Project.bin）")
     ap.add_argument("--chunk", type=int, default=256, help="每块字节数（默认 256）")
     ap.add_argument("--delay", type=float, default=0.05, help="块间延时秒数（默认 0.05）")
+    ap.add_argument("--corrupt", type=int, default=-1,
+                    help="调试用：把发出去的第 N 个字节翻转一位，但头部仍声明原始数据的 CRC。"
+                         "用来验证 MCU 侧的 CRC 校验真的会拦下来（默认 -1 = 不注错）")
     args = ap.parse_args()
 
     fw = args.file or DEFAULT_FW
@@ -62,6 +65,21 @@ def main():
     print("固件 : %s  (%d 字节)" % (fw, len(data)))
     self_test()                     # 发之前先确认 CRC 实现是自己的预期
     print()
+
+    # 注错（调试用）：发出去的字节里翻一位，但头部仍声明**原始**数据的 CRC。
+    # 为什么需要它：正常路径下服务器是按自己发的文件算 CRC 的，所以永远自洽 ——
+    # "CRC 通过"这件事压根证明不了 MCU 那侧的校验逻辑真的会拦。
+    # 只有在真实数据上制造一次不符，才能证明校验不是摆设。
+    tx = data
+    if args.corrupt >= 0:
+        if args.corrupt >= len(data):
+            sys.exit("--corrupt %d 超出文件长度 %d" % (args.corrupt, len(data)))
+        b = bytearray(data)
+        b[args.corrupt] ^= 0x01
+        tx = bytes(b)
+        print("!! 注错模式：发出的第 %d 个字节被翻转一位（头部仍声明原始 CRC 0x%04X）"
+              % (args.corrupt, crc16_xmodem(data)))
+        print()
 
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -113,7 +131,7 @@ def main():
         if header:
             conn.sendall(header)
         for off in range(0, len(data), args.chunk):
-            blk = data[off:off + args.chunk]
+            blk = tx[off:off + args.chunk]
             conn.sendall(blk)
             sent += len(blk)
             pct = sent * 100 // len(data)

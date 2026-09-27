@@ -6,9 +6,13 @@ set PYTHONIOENCODING=utf-8
 rem ===========================================================
 rem  STM32 OTA firmware downloader (XMODEM-CRC, 128-byte blocks)
 rem
-rem    double-click                 -> COM8 + default region-A image
+rem    double-click                 -> COM20 + default region-A image
 rem    flash.bat COM3               -> specify serial port
 rem    flash.bat COM3 myfw.bin      -> specify port and image
+rem
+rem  The default port is a convenience, not a guarantee -- Windows
+rem  reassigns COM numbers when you replug the adapter. If it fails,
+rem  the script prints the ports that DO exist; use one of those.
 rem
 rem  NOTE: this file is intentionally ASCII-only.
 rem  cmd.exe parses .bat files using the active code page, and
@@ -18,7 +22,7 @@ rem  All Chinese messages come from xmodem_send.py instead.
 rem ===========================================================
 
 set PORT=%~1
-if "%PORT%"=="" set PORT=COM8
+if "%PORT%"=="" set PORT=COM20
 
 set FWARG=
 if not "%~2"=="" set FWARG=--file "%~2"

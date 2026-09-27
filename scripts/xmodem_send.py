@@ -45,6 +45,22 @@ CRC_REQ = 0x43  # 'C'，接收方请求 CRC 模式
 BLOCK = 128
 
 
+def list_ports_hint() -> str:
+    """列出本机现有串口。
+
+    COM 号会被 Windows 重排（换个 USB 口就从 COM8 变成 COM20），
+    硬记一个号迟早失效。打不开时直接把可用项列出来，省得靠猜。"""
+    try:
+        from serial.tools import list_ports
+    except ImportError:
+        return ""
+    ps = list(list_ports.comports())
+    if not ps:
+        return "\n本机一个串口都没找到 —— 驱动没装？板子没插？"
+    return "\n本机现有串口：\n" + "\n".join(
+        "  %-8s %s" % (p.device, p.description) for p in ps)
+
+
 def wait_for_byte(ser, timeout):
     """等一个有效响应字节；忽略接收方周期性发来的 'C' 和其它噪声。
 
@@ -182,7 +198,8 @@ def main():
     try:
         ser = serial.Serial(args.port, args.baud, timeout=0.05)
     except Exception as e:
-        sys.exit("打不开串口 %s：%s\n（串口助手占用了？先关掉）" % (args.port, e))
+        sys.exit("打不开串口 %s：%s\n（串口助手占用了？先关掉）%s"
+                 % (args.port, e, list_ports_hint()))
 
     try:
         if not arm_bootloader(ser, log):
