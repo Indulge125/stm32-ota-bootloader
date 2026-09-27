@@ -172,16 +172,28 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 			}
 			BootLoader_Info();
 		}
-		else if((datalen == 1) && (data[0] == 't'))										//4a：接收测试，只看 +IPD 解析对不对
+		else if((datalen == 1) && (data[0] == 't'))										//4b-1：收发双向测试
 		{
-			U1_printf("请在服务器端发送一段数据（30 秒超时）...\r\n");
-			if(G4_RxTest(30000) == G4_OK)
+			/* 先测发送方向 */
+			U1_printf("向服务器发送 PING ...\r\n");
+			if(G4_TcpSend((const uint8_t *)"PING\r\n", 6) == G4_OK)
 			{
-				U1_printf("[结果] +IPD 解析正常\r\n");
+				U1_printf("[结果] 发送成功 —— 看 Hercules 的 Received data 框\r\n");
 			}
 			else
 			{
-				U1_printf("[结果] 没收到数据 —— 查：先发 [8] 连WiFi、[9] 连服务器\r\n");
+				U1_printf("[结果] 发送失败 —— 先确认 [8] 连WiFi、[9] 连服务器\r\n");
+			}
+
+			/* 再测接收方向 */
+			U1_printf("再等服务器回数据（30 秒）...\r\n");
+			if(G4_RxTest(30000) == G4_OK)
+			{
+				U1_printf("[结果] 收发双向都正常\r\n");
+			}
+			else
+			{
+				U1_printf("[结果] 没收到回数据 —— 在 Hercules Send 框里发点内容\r\n");
 			}
 			BootLoader_Info();
 		}

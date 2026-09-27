@@ -437,6 +437,72 @@ uint8_t G4_TcpConnect(const char *host, uint16_t port)
 	return G4_ERR_TIMEOUT;
 }
 
+/* 向服务器发原始字节。AT 流程：
+ *   AT+CIPSEND=<len>  →  模组回 "OK" 和 ">" 提示符
+ *   <len 个原始字节>
+ *   模组回 "SEND OK"
+ *
+ * 为什么单独写而不复用 G4_SendString：
+ *   G4_SendString 是给文本用的（依赖 \0 结尾），这里必须是定长字节流，
+ *   固件里可能出现 0x00。
+ */
+uint8_t G4_TcpSend(const uint8_t *data, uint16_t len)
+{
+	char     cmd[32];
+	uint16_t i;
+
+	if((data == 0) || (len == 0))
+	{
+		return G4_ERR_PARAM;
+	}
+
+	sprintf(cmd, "AT+CIPSEND=%u", (unsigned int)len);
+
+	G4_ClearRx();
+	if(s_verbose)
+	{
+		U1_printf("[TX] %s\r\n", cmd);
+	}
+	G4_SendCmd(cmd);
+
+	/* 等 ">" 提示符：模组表示"可以开始灌数据了" */
+	if(G4_WaitResp(">", 3000) != G4_OK)
+	{
+		if(s_verbose)
+		{
+			G4_LogRx();
+			G4_LogRet(G4_ERR_TIMEOUT);
+		}
+		return G4_ERR_TIMEOUT;
+	}
+
+	/* 灌原始字节 */
+	for(i = 0; i < len; i ++)
+	{
+		while(USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
+		USART_SendData(USART2, data[i]);
+	}
+	while(USART_GetFlagStatus(USART2, USART_FLAG_TC) == RESET);
+
+	/* 等 SEND OK */
+	G4_ClearRx();
+	if(G4_WaitResp("SEND OK", 5000) == G4_OK)
+	{
+		if(s_verbose)
+		{
+			U1_printf("[OK] 已发送 %u 字节\r\n", (unsigned int)len);
+		}
+		return G4_OK;
+	}
+
+	if(s_verbose)
+	{
+		G4_LogRx();
+		G4_LogRet(G4_ERR_TIMEOUT);
+	}
+	return G4_ERR_TIMEOUT;
+}
+
 uint8_t G4_TcpClose(void)
 {
 	return G4_Cmd("AT+CIPCLOSE", 2000);

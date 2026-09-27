@@ -57,7 +57,10 @@ void G4_SetVerbose(uint8_t on);
 uint8_t G4_AT_Test(void);									/* AT → OK */
 uint8_t G4_SetStation(void);								/* AT+CWMODE=1 */
 uint8_t G4_JoinAP(const char *ssid, const char *pass);		/* AT+CWJAP="ssid","pass" */
-uint8_t G4_TcpConnect(const char *host, uint16_t port);		/* AT+CIPSTART="TCP",host,port */
+uint8_t G4_TcpConnect(const char *host, uint16_t port);
+/* 向服务器发原始字节（AT+CIPSEND 流程）。
+ * len 别超过模组单包上限（默认 2048）；本工程流转块 <= 1024，安全。 */
+uint8_t G4_TcpSend(const uint8_t *data, uint16_t len);		/* AT+CIPSTART="TCP",host,port */
 uint8_t G4_TcpClose(void);									/* AT+CIPCLOSE */
 
 /* 连上 WiFi 并建立 TCP 连接（对应命令行设置服务器后发起连接） */
