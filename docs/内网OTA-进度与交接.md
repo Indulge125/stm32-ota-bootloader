@@ -15,12 +15,12 @@
 |---|---|
 | 工作目录 | `d:\develop\stm32-ota固件升级` |
 | 仓库 | https://github.com/Indulge125/stm32-ota-bootloader （public） |
-| 最新提交 | `2648ea4`（已推送） |
+| 最新提交 | `feat(分区): B 区 32→36KB / A 区 32→28KB`（**未推送**，本机连不上 GitHub，见文末；具体 hash 见 `git log -1`） |
 | 硬件 | STM32F103C8T6 + OLED(PB8/9) + AT24C02(PB10/11) + W25Q64(PA4-7) + ESP8266 D1 Mini(USART2: PA2/PA3) |
 | 调试串口 | USART1 PA9/PA10，**9600**（Tera Term，UTF-8） |
 | ESP8266 | USART2 PA2/PA3，**115200** |
-| 分区 | B 区(BootLoader) 32KB @0x08000000；A 区(App) 32KB @0x08008000 |
-| BootLoader 镜像 | **29448 / 32768，余量 3320（偏紧）** |
+| 分区 | B 区(BootLoader) 36KB @0x08000000；A 区(App) 28KB @0x08009000 |
+| BootLoader 镜像 | **29448 / 36864，余量 7416** |
 
 ---
 
@@ -45,24 +45,36 @@
 
 ## 下一步（按顺序）
 
-### 第一步：扩分区 ⚠️ 必须先做
+### 第一步：扩分区 ✅ 代码已完成（2026-09-27），待硬件复测
 
-**理由**：BootLoader 余量只剩 3320 字节，4b-2b 还要加约 1.5KB → 只剩 1700 字节，没有余量。
-而「BootLoader 溢出到 A 区被自己擦掉」正是 2026-09-20 把整个项目搞死的那个 bug。
+**完成情况**：B 区 32KB → **36KB**，A 区 32KB → **28KB**，四处同步改完：
 
-**方案**：B 区 32KB → **36KB**，A 区 32KB → **28KB**。四处同步改：
-
-| # | 位置 | 改成 |
+| # | 位置 | 结果 |
 |---|---|---|
-| 1 | `6-串口IAP功能/User/main.h` 的 `MyFlash_B_Page_Num` | `36` |
-| 2 | A 区工程 `.uvprojx` 的 `<OCR_RVCT4>` | 起始 `0x8009000`、大小 `0x7000` |
-| 3 | A 区工程 `Start/system_stm32f10x.c` 的 `VECT_TAB_OFFSET` | `0x9000` |
-| 4 | README.md 分区图与说明 | 同步 |
+| 1 | `6-串口IAP功能/User/main.h` 的 `MyFlash_B_Page_Num` | `32` → `36` ✅ |
+| 2 | `6-串口IAP功能/Project.uvprojx` 的 `<OCR_RVCT4>` 大小 | `0x8000` → `0x9000` ✅ |
+| 3 | A 区工程 `.uvprojx` 的 `<OCR_RVCT4>` | 起址 → `0x8009000`、大小 → `0x7000` ✅ |
+| 4 | A 区工程 `Start/system_stm32f10x.c` 的 `VECT_TAB_OFFSET` | `0x8000` → `0x9000` ✅ |
 
-现成脚本：`_tools/repartition_flash.py`（上次做过一遍，改一下数值即可）
-验证脚本：`_tools/verify_repartition.py`（量镜像 vs 容量）
+顺手修掉 `OTA学习笔记.md` 分区图里 B 区那行的**旧值残留**（还写着 20KB / 第 0~19 页，
+上次只改了 A 区那行）。
 
-**改完必须让用户重烧 B 区 + 重编 A 区，并复测命令 `5`/`6`** —— 改动过的东西不能沿用旧验证。
+**实测容量**（`python _tools/verify_repartition.py`）：
+
+| 镜像 | 大小 | 分区容量 | 余量 |
+|---|---|---|---|
+| BootLoader | 29448 | 36864（36KB） | **7416**（原 3320） |
+| A 区 App | 14100 | 28672（28KB） | 14572 |
+
+A 区复位向量 `0x08009235` 落在新区内，链接起址与向量表偏移配套正确。
+
+**⚠ 还没做硬件验证 —— 改动过的东西不能沿用旧验证**：
+1. 重新编译并烧录 **B 区**（BootLoader）
+2. 重新编译 **A 区** 程序（换了链接起址，必须重编），经命令 `2` 或 `5`+`6` 写入
+3. 复测命令 `5` / `6` 两条外部 FLASH 路径，确认搬运后能跳转
+4. 之后再做 4b-2b
+
+脚本：`_tools/repartition_flash.py`（可重复执行，逐处校验命中，`--dry` 预演）
 
 ### 第二步：4b-2b —— 收固件写 W25Q64 并触发搬运
 
@@ -114,7 +126,7 @@ MCU  →  "OTA_REQ\n"
 |---|---|
 | Keil | `D:\keil5`，编译器 `/d/keil5/ARM/ARMCC/bin/armcc.exe` |
 | 命令行编译验证 | 见 `_tools/`，需手动加 `-DSTM32F10X_MD`（Keil 才自动带） |
-| GitHub 推送 | 443 间歇性被重置；先直连，失败再挂代理 `127.0.0.1:7897` |
+| GitHub 推送 | 443 间歇性被重置；先直连，失败再挂代理 `127.0.0.1:7897`。**2026-09-27 两者都不通**，扩分区这次提交与 `b51b5c0` 都还在本地 |
 | WiFi 凭据 | `6-串口IAP功能/Hardware/wifi_cfg.h`（**已 gitignore，不进仓库**） |
 | 服务器监听端口 | **8080**（穿透指向的内网端口），不是外网 25340 |
 | 未推送分支 | `wip/xiaomi-4g-attempt`（含小米 AI 那版改造，**内嵌 WiFi 明文密码，建议删掉**） |
