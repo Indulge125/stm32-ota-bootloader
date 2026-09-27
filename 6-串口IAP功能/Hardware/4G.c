@@ -202,81 +202,110 @@ void G4_PayloadReset(void)
 	G4_ClearRx();
 }
 
+/* 批量取载荷：一次最多取 max 个字节，返回实际取到的个数。
+ *
+ * 为什么需要它：G4_PayloadGet 每取 1 字节就调一次 G4_RxDrop(1)，
+ * 而 G4_RxDrop 要从头部搬移 s_rxLen-1 个字节 —— 于是"缓冲越满、单字节越贵"，
+ * 满缓冲时单字节约 100us，而 115200 下 86.8us 就来一个字节，排空追不上到达，
+ * 一直填到溢出。4b-2b 实测：收 13000 字节到 11208 就溢出了，溢出标志被置 1。
+ *
+ * 这里改成"取一批、搬一次"：256 字节一批时，搬移总量降到逐字节版的约 1/400。
+ *
+ * 关键点：只有在"两个信封之间"才去找 "+IPD,"；一旦进入载荷就严格按长度数，
+ * 总共取 s_ipdRemain 个字节。这样载荷里出现 "+IPD" 也不会被误当成信封。 */
+uint16_t G4_PayloadRead(uint8_t *dst, uint16_t max)
+{
+	uint8_t  *b;
+	uint16_t  n, i, j, take;
+	uint32_t  len;
+
+	if(max == 0) return 0;
+
+	for(;;)
+	{
+		n = G4_RxLen();
+		if(n == 0) return 0;
+
+		/* --- 正在收载荷：一次取走一批，只搬移一次缓冲 --- */
+		if(s_ipdState == 2)
+		{
+			b = (uint8_t *)G4_RxBuf();
+			take = (s_ipdRemain > (uint32_t)n) ? n : (uint16_t)s_ipdRemain;
+			if(take > max) take = max;
+			if(take == 0) return 0;
+			for(i = 0; i < take; i ++)
+			{
+				dst[i] = b[i];
+			}
+			G4_RxDrop(take);				/* 整批只搬这一次 */
+			s_ipdRemain -= take;
+			if(s_ipdRemain == 0)
+			{
+				s_ipdState = 0;			/* 本包装完，回到找信封 */
+			}
+			return take;
+		}
+
+		/* --- 找信封 "+IPD," --- */
+		b = (uint8_t *)G4_RxBuf();
+		for(i = 0; (uint32_t)i + 5 <= n; i ++)
+		{
+			if(memcmp(&b[i], "+IPD,", 5) == 0) break;
+		}
+		if((uint32_t)i + 5 > n)
+		{
+			/* 没找到完整信封：丢掉绝大部分，只留最后 4 字节（可能是半个 "+IPD"） */
+			if(n > 4) G4_RxDrop(n - 4);
+			return 0;
+		}
+		if(i > 0)
+		{
+			G4_RxDrop(i);				/* 丢掉信封之前的杂字节 */
+		}
+
+		/* --- 解析十进制长度，直到 ':' --- */
+		b = (uint8_t *)G4_RxBuf();
+		n = G4_RxLen();
+		len = 0;
+		j = 5;
+		while((j < n) && (b[j] >= '0') && (b[j] <= '9'))
+		{
+			len = len * 10 + (uint32_t)(b[j] - '0');
+			j ++;
+		}
+		if(j >= n)
+		{
+			return 0;					/* 长度还没收全，等下一批 */
+		}
+		if(b[j] != ':')
+		{
+			G4_RxDrop(5);				/* 格式不对，丢掉 "+IPD," 重来 */
+			return 0;
+		}
+		G4_RxDrop(j + 1);				/* 丢掉 "+IPD,<len>:" 整个信封 */
+
+		if(len == 0)
+		{
+			continue;					/* 空信封，回去继续找下一个 */
+		}
+		s_ipdRemain = len;
+		s_ipdState  = 2;
+		/* 不 return —— 立刻回到循环开头把这批载荷取走，
+		 * 少一次空转，也少一轮调用方的 Delay */
+	}
+}
+
 /* 取下一个纯载荷字节（自动剥掉 +IPD,<len>: 信封）。
  * 返回 1=取到，0=暂时没有数据。
  *
- * 关键点：只有在"两个信封之间"才去找 "+IPD,"；
- * 一旦进入载荷，就严格按长度数，总共取 s_ipdRemain 个字节。
- * 这样载荷里出现 "+IPD" 也不会被误当成信封。 */
+ * 现在只是批量版的薄封装 —— 信封状态机只保留 G4_PayloadRead 一份实现，
+ * 免得两处逻辑漂移（这个项目已经因为"两处必须同步"被咬过）。
+ * 收大块数据（如固件）请直接用 G4_PayloadRead，别用这个逐字节版。 */
 uint8_t G4_PayloadGet(uint8_t *out)
 {
-	uint8_t  *b;
-	uint16_t  n, i, j;
-	uint32_t  len;
-
-	n = G4_RxLen();
-	if(n == 0) return 0;
-
-	/* --- 正在收载荷：直接取走 1 字节 --- */
-	if(s_ipdState == 2)
-	{
-		b = (uint8_t *)G4_RxBuf();
-		*out = b[0];
-		G4_RxDrop(1);
-		s_ipdRemain --;
-		if(s_ipdRemain == 0)
-		{
-			s_ipdState = 0;			/* 本包装完，回到找信封 */
-		}
-		return 1;
-	}
-
-	/* --- 找信封 "+IPD," --- */
-	b = (uint8_t *)G4_RxBuf();
-	for(i = 0; (uint32_t)i + 5 <= n; i ++)
-	{
-		if(memcmp(&b[i], "+IPD,", 5) == 0) break;
-	}
-	if((uint32_t)i + 5 > n)
-	{
-		/* 没找到完整信封：丢掉绝大部分，只留最后 4 字节（可能是半个 "+IPD"） */
-		if(n > 4) G4_RxDrop(n - 4);
-		return 0;
-	}
-	if(i > 0)
-	{
-		G4_RxDrop(i);				/* 丢掉信封之前的杂字节 */
-	}
-
-	/* --- 解析十进制长度，直到 ':' --- */
-	b = (uint8_t *)G4_RxBuf();
-	n = G4_RxLen();
-	len = 0;
-	j = 5;
-	while((j < n) && (b[j] >= '0') && (b[j] <= '9'))
-	{
-		len = len * 10 + (uint32_t)(b[j] - '0');
-		j ++;
-	}
-	if(j >= n)
-	{
-		return 0;					/* 长度还没收全，等下一批 */
-	}
-	if(b[j] != ':')
-	{
-		G4_RxDrop(5);				/* 格式不对，丢掉 "+IPD," 重来 */
-		return 0;
-	}
-	G4_RxDrop(j + 1);				/* 丢掉 "+IPD,<len>:" 整个信封 */
-
-	if(len == 0)
-	{
-		return 0;
-	}
-	s_ipdRemain = len;
-	s_ipdState  = 2;
-	return 0;						/* 下一轮调用才真正取字节 */
+	return (G4_PayloadRead(out, 1) == 1) ? 1 : 0;
 }
+
 
 /* ================= 【4b-2a】流式 +IPD 接收测试 =================
  * 20 秒内把所有载荷字节累加，结束时打印摘要：

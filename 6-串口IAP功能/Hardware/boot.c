@@ -55,6 +55,7 @@ uint8_t OTA_NetDownload(void)
 	uint8_t   hdr[OTA_HDR_MAX];
 	uint8_t   hlen = 0;
 	uint8_t   hdrDone = 0;
+	uint16_t  n;				/* 本轮批量取到的字节数 */
 	uint8_t   head[16];		/* 头 16 字节，失败时打印用 */
 	uint8_t   last[16];		/* 尾 16 字节，环形 */
 	uint32_t  len = 0;
@@ -158,15 +159,25 @@ uint8_t OTA_NetDownload(void)
 	U1_printf("[OTA] 开始接收 %u 字节 ...\r\n", (unsigned int)len);
 	while(got < len)
 	{
-		if(G4_PayloadGet(&b))
+		/* 批量取，并且直接读进页缓冲 —— 不额外占 RAM（栈只有 1KB）。
+		 * 为什么必须批量：逐字节版每取 1 字节就搬一次整个接收缓冲，
+		 * 缓冲越满越慢，会自锁到溢出丢字节（实测踩过，见 G4_PayloadRead 的注释）。 */
+		n = G4_PayloadRead(&UpDataA.UpDataBuff[inPage], (uint16_t)(256 - inPage));
+		/* 服务器只该发 len 字节；多发的一律不要，免得越界写进 FLASH */
+		if((uint32_t)n > (len - got)) n = (uint16_t)(len - got);
+		if(n > 0)
 		{
 			quiet = 0;
-			UpDataA.UpDataBuff[inPage ++] = b;
-			crcGot = Xmodem_CRC16_Update(crcGot, &b, 1);
-			if((got % 4096) == 0) U1_printf(".");	/* 进度点：只 1 个字符，约 1ms */
-			if(got < 16) head[got] = b;
-			last[got % 16] = b;
-			got ++;
+			for(i = 0; i < n; i ++)
+			{
+				b = UpDataA.UpDataBuff[inPage + i];	/* 只是读数组，不搬缓冲 */
+				if(got < 16) head[got] = b;
+				last[got % 16] = b;
+				if((got % 4096) == 0) U1_printf(".");	/* 进度点：1 字符约 1ms */
+				got ++;
+			}
+			crcGot = Xmodem_CRC16_Update(crcGot, &UpDataA.UpDataBuff[inPage], n);
+			inPage = (uint16_t)(inPage + n);
 			if(inPage == 256)
 			{
 				W25Q64_PageProgram(page, UpDataA.UpDataBuff, 256);

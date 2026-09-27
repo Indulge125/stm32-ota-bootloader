@@ -260,11 +260,13 @@ python scripts/xmodem_send.py --port COM8 --file "别的固件.bin"
 | `scripts/test_ota_server.py` | **OTA 服务器协议**：起一个本地服务器 + 模拟设备，核对协议头格式、长度、CRC，以及固件是否逐字节一致；同时确认 `PING` 路径仍是裸发（4b-2a 回归） |
 | `scripts/test_crc_equiv.py` | **CRC 零回归**：把 `boot.c` 里**真实的** `Xmodem_CRC16` / `Xmodem_CRC16_Update` 抽出来用 gcc 编译，在真实固件上按「整段 / 每 256 字节续算 / 逐字节续算」三种方式运行，与 `scripts/crc16.py` 对账 |
 | `scripts/test_macro_fix.py` | **分区宏展开**：从 `main.h` 抽出宏原文用 gcc 编译运行，核对 A 区容量 / 页数 / 起址算出来的值。这类 bug 编译和链接**都不会报错**，只有数值默默变错 —— 见下方「宏没括号」一节 |
+| `scripts/test_payload_read.py` | **+IPD 状态机**：把 `4G.c` 的真实解析代码抽出来，喂合成的 +IPD 流，覆盖「载荷里含 `+IPD,999:` 字样」「信封被切成两半」「信封大于读批量」等边界，并量化两种读法的缓冲搬移代价 |
 
 ```bash
 python scripts/test_ota_server.py     # 用例1 OTA_REQ 带头 / 用例2 PING 裸发 / 用例3 注错必被检出
 python scripts/test_crc_equiv.py      # 三种调用方式都应得到同一个 CRC
 python scripts/test_macro_fix.py      # A 区容量应算出 28672、起址 0x08009000
+python scripts/test_payload_read.py   # +IPD 解析正确性 + 批量读的搬移代价
 ```
 
 两个测试开头都会跑 CRC-16/XMODEM 的**已知向量自检**（`"123456789" → 0x31C3`）。
