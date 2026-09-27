@@ -196,11 +196,21 @@ static uint8_t  s_ipdState = 0;
 static uint32_t s_ipdRemain = 0;
 static uint32_t s_ipdMax = 0;		/* 见过的最大 +IPD 长度 */
 
+/* USART2 错误计数。必须在读 DR **之前**取样 SR —— 读 DR 会把这些标志一起清掉，
+ * 所以不主动看就永远看不见（原来的中断就是这样，等于完全没有错误可见性）。
+ *   ORE 溢出：这个字节丢了     -> 总长度会短
+ *   FE  帧错 / NE 噪声：字节值可能是错的 -> **总长度不变**
+ * 后者最阴险：长度校验过得去，只有 CRC 能发现。 */
+static uint16_t s_errOre = 0;
+static uint16_t s_errFe  = 0;
+static uint16_t s_errNe  = 0;
+
 void G4_PayloadReset(void)
 {
 	s_ipdState  = 0;
 	s_ipdRemain = 0;
 	s_ipdMax    = 0;
+	s_errOre = s_errFe = s_errNe = 0;
 	G4_ClearRx();
 }
 
@@ -398,6 +408,14 @@ uint16_t G4_RxLen(void)
 uint32_t G4_IpdMaxLen(void)
 {
 	return s_ipdMax;
+}
+
+/* 打印本次（自 G4_PayloadReset 起）串口错误计数。全为 0 才说明传输链路是干净的。
+ * ORE 非 0 -> 丢过字节（长度会短）；FE/NE 非 0 -> 字节值可能被传错（长度不变）。 */
+void G4_RxErrReport(void)
+{
+	U1_printf("[OTA] 串口错误：溢出 %u，帧错 %u，噪声 %u（应全为 0）\r\n",
+	          (unsigned int)s_errOre, (unsigned int)s_errFe, (unsigned int)s_errNe);
 }
 
 const uint8_t *G4_RxBuf(void)
@@ -699,11 +717,18 @@ uint8_t G4_Connect(const char *ssid, const char *pass,
 
 void USART2_IRQHandler(void)
 {
-	uint8_t byte;
+	uint8_t  byte;
+	uint16_t sr;
 
 	if(USART_GetITStatus(USART2, USART_IT_RXNE) == SET)
 	{
+		/* 先读 SR 再读 DR：读 DR 会把 ORE/FE/NE 一起清掉，
+		 * 不先取样就永远看不到这些错误（原代码正是如此）。 */
+		sr   = USART2->SR;
 		byte = (uint8_t)USART_ReceiveData(USART2);
+		if(sr & USART_FLAG_ORE) s_errOre ++;
+		if(sr & USART_FLAG_FE)  s_errFe  ++;
+		if(sr & USART_FLAG_NE)  s_errNe  ++;
 		if(s_rxLen < G4_RX_SIZE - 1)
 		{
 			s_rxBuf[s_rxLen ++] = byte;

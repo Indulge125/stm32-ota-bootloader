@@ -91,6 +91,8 @@ uint16_t G4_PayloadRead(uint8_t *dst, uint16_t max);
 /* 本次连接里见过的最大 +IPD 长度。用来判断信封是否超过缓冲 ——
  * 超过就必然丢字节，且光看代码看不出来，得测。 */
 uint32_t G4_IpdMaxLen(void);
+/* 打印串口错误计数（ORE/FE/NE）。FE/NE 会让字节值错而长度不变，只有 CRC 能发现。 */
+void G4_RxErrReport(void);
 /* 【4a 联调用】等待一段 +IPD 数据并打印出来（长度 + 内容）。
  * 返回 G4_OK 表示收到，G4_ERR_TIMEOUT 表示超时。
  * 只适合小段数据（接收缓冲 512 字节）；收大固件要走流式处理。 */

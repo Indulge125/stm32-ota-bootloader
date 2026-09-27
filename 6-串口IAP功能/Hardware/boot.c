@@ -50,7 +50,8 @@ load_a load_A;
  * 模组合不合并、合并多大，取决于它自己的缓冲和我们消费的快慢。 */
 #define OTA_DIAG()  U1_printf("[OTA]   诊断：溢出标志 %u，缓冲待处理 %u 字节，最大 +IPD %u 字节，累计等待 %u ms\r\n", \
                             (unsigned int)G4_RxOverflow(), (unsigned int)G4_RxLen(), \
-                            (unsigned int)G4_IpdMaxLen(), (unsigned int)waited)
+                            (unsigned int)G4_IpdMaxLen(), (unsigned int)waited); \
+                    G4_RxErrReport()
 
 uint8_t OTA_NetDownload(void)
 {
@@ -235,6 +236,13 @@ uint8_t OTA_NetDownload(void)
 	{
 		U1_printf("\r\n[OTA] CRC 不符：收到 %04X，期望 %04X\r\n",
 		          (unsigned int)crcGot, (unsigned int)crcExp);
+		/* 把头尾打出来：判断是开头就错还是后面才错。
+		 * 原来只有成功路径打，失败时等于把现场证据丢了。 */
+		U1_printf("[OTA] 头 16: ");
+		for(i = 0; i < 16; i ++) U1_printf("%02X ", head[i]);
+		U1_printf("\r\n[OTA] 尾 16: ");
+		for(i = 0; i < 16; i ++) U1_printf("%02X ", last[(got + i) % 16]);
+		U1_printf("\r\n");
 		OTA_DIAG();
 		G4_SetVerbose(1);
 		return 0;
@@ -245,6 +253,7 @@ uint8_t OTA_NetDownload(void)
 	U1_printf("[OTA] 溢出标志 %u（应为 0），最大 +IPD %u 字节（缓冲 %u）\r\n",
 	          (unsigned int)G4_RxOverflow(), (unsigned int)G4_IpdMaxLen(),
 	          (unsigned int)G4_RX_SIZE);
+	G4_RxErrReport();
 
 	/* ---- 校验 2：从 W25Q64 回读重算 ----
 	 * 这一步才证明"真的落盘写对了"。PageProgram 没有返回值、
