@@ -31,6 +31,10 @@ try:
 except ImportError:
     sys.exit("缺少 pyserial，请先执行：pip install pyserial")
 
+# CRC-16/XMODEM 与服务器端 (ota_server.py) 共用同一份实现，
+# 避免两份拷贝漂移（见 crc16.py 的模块说明）。
+from crc16 import crc16_xmodem, self_test
+
 # 仓库根目录（本脚本在 scripts/ 下）—— 用来解析默认固件路径。
 # 默认路径里含中文，所以放在 Python 里解析，不写进 .bat（cmd 解析含中文的批处理会出错）。
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,27 +43,6 @@ DEFAULT_FW = os.path.join("1.1-(A区)串口测试程序", "Objects", "Project.bi
 SOH, EOT, ACK, NAK, CAN, SUB = 0x01, 0x04, 0x06, 0x15, 0x18, 0x1A
 CRC_REQ = 0x43  # 'C'，接收方请求 CRC 模式
 BLOCK = 128
-
-
-def crc16_xmodem(data: bytes) -> int:
-    """CRC-16/XMODEM：初值 0x0000，多项式 0x1021，MSB 优先，不反转、不末异或。
-    与 boot.c 的 Xmodem_CRC16() 逐位等价。"""
-    crc = 0x0000
-    for b in data:
-        crc ^= b << 8
-        for _ in range(8):
-            crc = ((crc << 1) ^ 0x1021) & 0xFFFF if (crc & 0x8000) else (crc << 1) & 0xFFFF
-    return crc
-
-
-def self_test() -> None:
-    """用已知向量验证 CRC 实现。对不上就别往下发了。"""
-    vectors = [(b"123456789", 0x31C3), (b"", 0x0000), (b"\x00", 0x0000)]
-    for data, want in vectors:
-        got = crc16_xmodem(data)
-        if got != want:
-            sys.exit("CRC 自检失败：%r -> 期望 0x%04X，实际 0x%04X" % (data, want, got))
-    print("CRC-16/XMODEM 自检通过（\"123456789\" -> 0x31C3）")
 
 
 def wait_for_byte(ser, timeout):

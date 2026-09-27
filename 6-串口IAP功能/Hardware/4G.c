@@ -365,6 +365,16 @@ const uint8_t *G4_RxBuf(void)
 	return s_rxBuf;
 }
 
+/* 接收缓冲溢出标志：USART2 中断里缓冲满时置位并丢弃该字节。
+ * 以前只写不读 —— 溢出是**完全静默**的，只表现为"数据莫名少了一截"，
+ * 排查时很容易误判成网络丢包。4b-2b 收完固件读一次，
+ * 把"静默损坏"变成"有据可查"。
+ * 由 G4_ClearRx() 清（发命令前 / G4_PayloadReset 时）。 */
+uint8_t G4_RxOverflow(void)
+{
+	return s_rxOverflow;
+}
+
 /* 原样发送字符串（不补换行） */
 void G4_SendString(const char *str)
 {

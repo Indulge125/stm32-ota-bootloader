@@ -69,6 +69,7 @@ uint8_t G4_Connect(const char *ssid, const char *pass,
 
 uint16_t G4_RxLen(void);
 void     G4_RxDrop(uint16_t n);     /* 从缓冲头部丢弃 n 字节 */
+uint8_t  G4_RxOverflow(void);       /* 缓冲是否溢出过（溢出即静默丢字节） */
 
 /* ---------- +IPD 流式解析（4b-2 收固件用） ----------
  * ESP8266 AT 模式收到 TCP 数据会吐 +IPD,<长度>:<原始字节>。

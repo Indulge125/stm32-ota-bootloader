@@ -13,6 +13,251 @@
 
 load_a load_A;
 
+/* ================= 【4b-2b-1】内网 OTA：收固件写 W25Q64 =================
+ * 协议：
+ *   MCU   → 服务器   "OTA_REQ\n"
+ *   服务器 → MCU     "OTA <真实长度> <CRC16>\n" + <真实长度 字节固件>
+ *
+ * 落盘位置：W25Q64 **块 0**，搬运口径的长度写进 OTA_Info.FileLen[0]。
+ *   ⚠ 是块 0 / FileLen[0]，不是块 1 ——
+ *     BootLoader_Branch() 的 OTA 分支置的就是 W25Q64_BlockNum = 0，
+ *     main.c 的搬运读的也是 FileLen[0]、从 0*64KB 读。
+ *
+ * 本步不置 OTA_Flag（那是 4b-2b-2）。这里只把固件落到 W25Q64，
+ * 然后置 UpData_A_Flag 交给主循环搬运 —— 和真实 OTA 走同一条搬运代码。
+ *
+ * 三道校验，任一不过都不触发搬运：
+ *   1. 长度：!= 0 且 <= A 区容量（28672）
+ *   2. CRC：边收边算，与协议头声明的比
+ *   3. 回读 CRC：写完从 W25Q64 读回重算 —— 这一条才证明"真的落盘写对了"
+ *      （W25Q64_PageProgram 无返回值、无错误上报，页写失败是静默的）
+ *
+ * 下面的顺序不能改，理由见每一步的注释：
+ *   擦除必须在发请求之前（64KB 块擦 0.2~2 秒，而接收缓冲只装得下 44ms 的数据）；
+ *   接收循环里绝不打印（一行 40 字符 @9600 要 42ms，一次就吃掉整个缓冲）。
+ */
+#define OTA_HDR_MAX    32		/* "OTA <10位> <8位>\n" 最长 25，留余量 */
+#define OTA_HDR_MS     5000		/* 等协议头的静默超时 */
+#define OTA_TOTAL_MS   60000	/* 收数据的总超时 */
+#define OTA_QUIET_MS   2000		/* 连续没收到字节就放弃（服务器块间延时 50ms） */
+
+uint8_t OTA_NetDownload(void)
+{
+	uint8_t   b;
+	uint8_t   hdr[OTA_HDR_MAX];
+	uint8_t   hlen = 0;
+	uint8_t   hdrDone = 0;
+	uint8_t   head[16];		/* 头 16 字节，失败时打印用 */
+	uint8_t   last[16];		/* 尾 16 字节，环形 */
+	uint32_t  len = 0;
+	uint32_t  crcExp = 0;
+	uint16_t  crcGot = 0x0000;
+	uint32_t  got = 0;
+	uint32_t  page = 0;
+	uint16_t  inPage = 0;
+	uint32_t  waited = 0;
+	uint32_t  hdrWait = 0;
+	uint32_t  quiet = 0;
+	uint32_t  i;
+	uint16_t  rlen;
+	uint32_t  limit = (uint32_t)MyFlash_A_Page_Num * MyFlash_Page_Size;
+
+	/* ⚠ 下载期间本函数要同步跑好几秒，主循环不会去消费串口事件环 ——
+	 * 这段窗口里往调试串口敲的字符会排进环里，等下载结束才被当命令执行
+	 * （敲个 1 就是"擦除A区"）。
+	 *
+	 * 这里**故意不去改环指针**。试过"把 In 拉平到 Out"，但行不通：
+	 * URxDataIn 指向正在填充的槽位、它的 start 已被中断设成下一次 DMA 的目标，
+	 * 而 main.c 处理完事件后无条件 URxDataOut++ —— 硬拉平会让那个 ++ 落到
+	 * 一个陈旧槽位上，其 end 是上轮残留，datalen 会算成垃圾值，反而更危险。
+	 * 命令 2/5 的 Xmodem 下载十几秒也有同样的窗口（usart.h 开头记过同类问题），
+	 * 一直靠"下载期间别敲"约束。这里同样明确提示。 */
+	U1_printf("[OTA] 下载期间请不要往调试串口敲字符\r\n");
+
+	U1_printf("[OTA] 连接服务器 ...\r\n");
+	G4_Init(G4_BAUD_DEFAULT);
+	if(G4_TcpConnect(SERVER_HOST, SERVER_PORT) != G4_OK)
+	{
+		U1_printf("[OTA] 连不上服务器 —— 查穿透是否在线、端口映射、[8] 是否已连 WiFi\r\n");
+		return 0;
+	}
+
+	U1_printf("[OTA] 擦除 W25Q64 块 0（整块 64KB，可能要 1~2 秒）...\r\n");
+	W25Q64_Erase64K(0);		/* 必须在发请求之前，见文件头说明 */
+
+	G4_SetVerbose(0);		/* 从这儿开始闭嘴：verbose 一次 dump 能吃掉整个接收缓冲 */
+	G4_PayloadReset();
+	G4_TcpSend((const uint8_t *)"OTA_REQ\n", 8);
+	/* 上面这句的返回值不当判据：G4_TcpSend 结尾会 G4_ClearRx() 再等 SEND OK，
+	 * 而 G4_WaitResp 是"先判 ERROR/FAIL 再判期望串"、且 strstr 遇 0x00 截断。
+	 * 固件里出现 "ERROR"/"FAIL" 字样时会误报。真正的判据只有长度 + CRC。 */
+
+	/* ---- 收协议头 ---- */
+	U1_printf("[OTA] 等待协议头 ...\r\n");
+	while(hdrWait < OTA_HDR_MS)
+	{
+		if(G4_PayloadGet(&b))
+		{
+			hdrWait = 0;			/* 有进展就重新计时 */
+			if(b == '\n') { hdrDone = 1; break; }
+			if(hlen >= OTA_HDR_MAX - 1) break;	/* 头太长，肯定不对 */
+			hdr[hlen ++] = b;
+		}
+		else
+		{
+			Delay_ms(1);
+			hdrWait ++;
+		}
+	}
+	hdr[hlen] = '\0';		/* sscanf 只能吃 NUL 结尾的串 */
+	if(!hdrDone)
+	{
+		U1_printf("[OTA] 等协议头超时（%d 秒）\r\n", OTA_HDR_MS / 1000);
+		G4_SetVerbose(1);
+		return 0;
+	}
+	U1_printf("[OTA] 头: %s\r\n", hdr);
+	if(sscanf((char *)hdr, "OTA %u %x", &len, &crcExp) != 2)
+	{
+		U1_printf("[OTA] 协议头格式不对\r\n");
+		G4_SetVerbose(1);
+		return 0;
+	}
+	U1_printf("[OTA] 长度 %u，期望 CRC %04X\r\n", (unsigned int)len, (unsigned int)crcExp);
+
+	/* 这两条必须挡在写入和搬运之前：
+	 *   长度 0  -> 搬运会擦完 A 区却一个字节都不写回去；
+	 *   超容量  -> 搬运循环写穿 0x0800FFFF，而 i 是 uint8_t 还会回绕重写。
+	 * 失败路径只清 UpData_A_Flag、OTA_Flag 仍在，会变成每次复位都重试的死循环。 */
+	if(len == 0)
+	{
+		U1_printf("[OTA] 长度是 0，拒绝\r\n");
+		G4_SetVerbose(1);
+		return 0;
+	}
+	if(len > limit)
+	{
+		U1_printf("[OTA] 长度 %u 超出 A 区容量 %u，拒绝\r\n",
+		          (unsigned int)len, (unsigned int)limit);
+		G4_SetVerbose(1);
+		return 0;
+	}
+
+	/* ---- 收数据：边收边写，每 256 字节一页 ---------- */
+	U1_printf("[OTA] 开始接收 %u 字节 ...\r\n", (unsigned int)len);
+	while(got < len)
+	{
+		if(G4_PayloadGet(&b))
+		{
+			quiet = 0;
+			UpDataA.UpDataBuff[inPage ++] = b;
+			crcGot = Xmodem_CRC16_Update(crcGot, &b, 1);
+			if(got < 16) head[got] = b;
+			last[got % 16] = b;
+			got ++;
+			if(inPage == 256)
+			{
+				W25Q64_PageProgram(page, UpDataA.UpDataBuff, 256);
+				page ++;
+				inPage = 0;
+			}
+		}
+		else
+		{
+			Delay_ms(1);
+			waited ++;
+			quiet  ++;
+			if(quiet >= OTA_QUIET_MS)
+			{
+				U1_printf("[OTA] 连续 %d 毫秒没收到数据，放弃（已收 %u / %u 字节）\r\n",
+				          OTA_QUIET_MS, (unsigned int)got, (unsigned int)len);
+				G4_SetVerbose(1);
+				return 0;
+			}
+			if(waited >= OTA_TOTAL_MS)
+			{
+				U1_printf("[OTA] 总超时（%d 秒），已收 %u / %u 字节\r\n",
+				          OTA_TOTAL_MS / 1000, (unsigned int)got, (unsigned int)len);
+				G4_SetVerbose(1);
+				return 0;
+			}
+		}
+	}
+
+	/* 尾页不足 256 字节：补 0xFF 填满整页再写。
+	 * 必须补 0xFF —— 这样 [len, 向上取整) 那几字节在 W25Q64 里就是 0xFF，
+	 * 搬运时写进已擦除的 A 区是 no-op，不会置 PGERR。
+	 * 若图省事直接把缓冲里的残留写下去，回读 CRC 也会跟着错。 */
+	if(inPage > 0)
+	{
+		while(inPage < 256) UpDataA.UpDataBuff[inPage ++] = 0xFF;
+		W25Q64_PageProgram(page, UpDataA.UpDataBuff, 256);
+	}
+
+	/* ---- 校验 1：长度 + 传输 CRC ---- */
+	if(got != len)
+	{
+		U1_printf("[OTA] 字节数不符：收到 %u，协议头声明 %u\r\n",
+		          (unsigned int)got, (unsigned int)len);
+		G4_SetVerbose(1);
+		return 0;
+	}
+	if(crcGot != (uint16_t)crcExp)
+	{
+		U1_printf("[OTA] CRC 不符：收到 %04X，期望 %04X\r\n",
+		          (unsigned int)crcGot, (unsigned int)crcExp);
+		G4_SetVerbose(1);
+		return 0;
+	}
+	U1_printf("[OTA] 收完 %u 字节，传输 CRC %04X 通过\r\n",
+	          (unsigned int)len, (unsigned int)crcGot);
+	U1_printf("[OTA] 接收缓冲溢出标志：%u（应为 0）\r\n", (unsigned int)G4_RxOverflow());
+
+	/* ---- 校验 2：从 W25Q64 回读重算 ----
+	 * 这一步才证明"真的落盘写对了"。PageProgram 没有返回值、
+	 * WaitBusy 超时后也是静默返回，页写失败只靠收下来的字节是查不出来的。 */
+	U1_printf("[OTA] 回读 W25Q64 校验中 ...\r\n");
+	crcGot = 0x0000;
+	for(i = 0; i < len; i += MyFlash_Page_Size)
+	{
+		rlen = (uint16_t)(((len - i) > MyFlash_Page_Size) ? MyFlash_Page_Size : (len - i));
+		W25Q64_ReadData(i, UpDataA.UpDataBuff, rlen);
+		crcGot = Xmodem_CRC16_Update(crcGot, UpDataA.UpDataBuff, rlen);
+	}
+	if(crcGot != (uint16_t)crcExp)
+	{
+		U1_printf("[OTA] 回读 CRC 不符：%04X，期望 %04X —— 写入有问题，不搬运\r\n",
+		          (unsigned int)crcGot, (unsigned int)crcExp);
+		G4_SetVerbose(1);
+		return 0;
+	}
+	U1_printf("[OTA] 回读 CRC %04X 通过 —— 确实写进 W25Q64 了\r\n", (unsigned int)crcGot);
+
+	/* ---- 打印头尾各 16 字节（只打摘要：U1_printf 的缓冲 2048 字节且不查长度）---- */
+	U1_printf("[OTA] 头 16: ");
+	for(i = 0; i < 16; i ++) U1_printf("%02X ", head[i]);
+	U1_printf("\r\n[OTA] 尾 16: ");
+	for(i = 0; i < 16; i ++) U1_printf("%02X ", last[(got + i) % 16]);
+	U1_printf("\r\n");
+
+	/* ---- 全部通过：交给主循环搬运 ----
+	 * FileLen[0] 是"搬运口径"的长度，必须向上取整到 4 的倍数：
+	 *   · main.c 的搬运要求 FileLen % 4 == 0；
+	 *   · MyFlash_WriteFlash 内部 while(num){...; num -= 4;}，
+	 *     num 不是 4 的倍数会无符号回绕、一路写穿 FLASH。
+	 * 注意它是搬运长度，**不是固件真实大小** —— 别拿它当固件大小上报。 */
+	OTA_Info.FileLen[0] = (len + 3) & ~((uint32_t)3);
+	UpDataA.W25Q64_BlockNum = 0;
+	BootStaFlag |= UpData_A_Flag;
+
+	U1_printf("[OTA] 就绪：FileLen[0] = %u（固件真实长度 %u）\r\n",
+	          (unsigned int)OTA_Info.FileLen[0], (unsigned int)len);
+	U1_printf("[OTA] 交给搬运 ...\r\n");
+
+	G4_SetVerbose(1);
+	return 1;
+}
+
 /* BootLoader分支判断 */
 void BootLoader_Branch(void)
 {
@@ -62,7 +307,8 @@ void BootLoader_Info(void)
 	U1_printf("[0]ESP8266 AT 自测\r\n");
 	U1_printf("[8]连WiFi\r\n");
 	U1_printf("[9]连服务器\r\n");
-	U1_printf("[t]接收测试(4b-2a)\r\n");	
+	U1_printf("[t]接收测试(4b-2a)\r\n");
+	U1_printf("[o]内网OTA下载(4b-2b)\r\n");	
 }
 
 /* BootLoader处理串口数据 */
@@ -170,6 +416,17 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 			{
 				U1_printf("[结果] TCP 连接失败 —— 查穿透是否在线、端口是否映射、[8] 是否已连上 WiFi\r\n");
 			}
+			BootLoader_Info();
+		}
+		else if((datalen == 1) && (data[0] == 'o'))										//4b-2b-1：内网 OTA 下载到 W25Q64
+		{
+			U1_printf("内网 OTA：收固件写 W25Q64 块 0（不置 OTA_Flag，校验过后交给搬运）\r\n");
+			if(OTA_NetDownload())
+			{
+				BootLoader_Info();
+				return;				/* 已置 UpData_A_Flag，让主循环去搬运，别在这里继续往下走 */
+			}
+			U1_printf("[OTA] 下载未通过校验，未触发搬运 —— A 区保持原样，可直接重试\r\n");
 			BootLoader_Info();
 		}
 		else if((datalen == 1) && (data[0] == 't'))										//4b-1：收发双向测试
@@ -388,30 +645,44 @@ void BootLoader_Clear(void)
 	GPIO_DeInit(GPIOB);
 }
 
-/* Xmodem的CRC16校验 */
-uint16_t Xmodem_CRC16(uint8_t *data, uint16_t datalen)
+/* Xmodem的CRC16校验（整段，初值 0）
+ *
+ * 实现挪到 Xmodem_CRC16_Update()，这里只负责给初值。
+ * 拆开的原因：原来把初值 0x0000 写死在函数体里，没法"每收一页算一次再续算"
+ * —— 那样得到的是最后一页的 CRC，不是整包的。4b-2b 边收边算、以及收完
+ * 从 W25Q64 回读分块重算，都依赖增量形式。 */
+uint16_t Xmodem_CRC16(uint8_t *data, uint32_t datalen)
+{
+	return Xmodem_CRC16_Update(0x0000, data, datalen);
+}
+
+/* CRC16 增量式：给定已有 crc 继续往下算。
+ *
+ * 算法与原来逐位等价：初值由调用方给、多项式 0x1021、MSB 优先、不反转、不末异或。
+ * 与上位机 scripts/crc16.py 的 crc16_update() 必须一致 ——
+ * 两边不一致的话，回读校验会永远失败。改这里之前先看那边。 */
+uint16_t Xmodem_CRC16_Update(uint16_t crc, uint8_t *data, uint32_t datalen)
 {
 	uint8_t i;
-	uint16_t CRC_Init = 0x0000;
 	uint16_t CRC_Ipoly = 0x1021;
 	
 	while(datalen --)
 	{
-		CRC_Init = (*data << 8) ^ CRC_Init;
+		crc = (*data << 8) ^ crc;
 		for(i = 0; i < 8; i ++)
 		{
-			if(CRC_Init & 0x8000)
+			if(crc & 0x8000)
 			{
-				CRC_Init = (CRC_Init << 1) ^ CRC_Ipoly;
+				crc = (crc << 1) ^ CRC_Ipoly;
 			}
 			else
 			{
-				CRC_Init = (CRC_Init << 1);
+				crc = (crc << 1);
 			}
 		}
 		data ++;
 	}
-	return CRC_Init;
+	return crc;
 }
 
 

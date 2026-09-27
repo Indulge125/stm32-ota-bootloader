@@ -287,7 +287,8 @@ static void HW_SelfTest(void)
 
 int main(void)
 {
-	uint8_t i;					//用于for循环
+	uint32_t i, flen;			//i 用于for循环；flen 是本次要搬运的长度
+							//i 原本是 uint8_t，长度异常时会回绕重写同一段 FLASH
 
 	OLED_Init();
 	MyIIC_Init();				//IIC初始化
@@ -330,7 +331,13 @@ int main(void)
 		if(BootStaFlag & UpData_A_Flag)
 		{
 			U1_printf("长度%d字节\r\n", OTA_Info.FileLen[UpDataA.W25Q64_BlockNum]);							//串口1输出信息
-			if(OTA_Info.FileLen[UpDataA.W25Q64_BlockNum] % 4 == 0)											//判断长度是否是4的整数，是的话进入if
+			flen = OTA_Info.FileLen[UpDataA.W25Q64_BlockNum];
+			/* 光判 %4 不够：长度为 0 会「擦完 A 区却什么都不写」；
+			 * 超容量会写穿 0x0800FFFF。而失败只清 UpData_A_Flag、OTA_Flag 仍在，
+			 * 会变成每次复位都重试、每次都失败的死循环。 */
+			if((flen != 0) &&
+			   (flen <= (uint32_t)MyFlash_A_Page_Num * MyFlash_Page_Size) &&
+			   (flen % 4 == 0))											//判断长度是否是4的整数，是的话进入if
 			{
 				MyFlash_EraseFlash(MyFlash_A_Start_Page, MyFlash_A_Page_Num);								//擦除A区FLASH
 				for(i = 0; i < OTA_Info.FileLen[UpDataA.W25Q64_BlockNum]/MyFlash_Page_Size; i ++)			//每次读写一个扇区数据，使用for循环，写入整数个扇区
@@ -353,7 +360,9 @@ int main(void)
 			}
 			else									//判断长度是否是4的整数倍，不是的话进入else
 			{
-				U1_printf("长度错误\r\n");			//串口1输出信息
+				U1_printf("长度错误：%u（需非0、<=%u、且是4的倍数）\r\n",
+					  (unsigned int)flen,
+					  (unsigned int)((uint32_t)MyFlash_A_Page_Num * MyFlash_Page_Size));			//串口1输出信息
 				BootStaFlag &=~ UpData_A_Flag;		//清除UpData_A_Flag标志位
 			}
 		}
