@@ -50,3 +50,7 @@ __pycache__/
 *.mkv
 *.zip
 *.7z
+
+# ============ 本机专用配置（含 WiFi 密码，不进仓库）============
+wifi_cfg.h
+!wifi_cfg.h.example

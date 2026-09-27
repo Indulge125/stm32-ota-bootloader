@@ -1,0 +1,16 @@
+﻿#ifndef __WIFI_CFG_H
+#define __WIFI_CFG_H
+
+/* ================= 配置模板 =================
+ * 用法：把本文件复制成 wifi_cfg.h，填入自己的配置。
+ *   copy wifi_cfg.h.example wifi_cfg.h
+ *
+ * wifi_cfg.h 已被 .gitignore 排除，不会被提交 —— 凭据不会进公开仓库。
+ */
+#define WIFI_SSID       "your_wifi_ssid"
+#define WIFI_PASS       "your_wifi_password"
+
+#define SERVER_HOST     "your.server.host"
+#define SERVER_PORT     12345
+
+#endif

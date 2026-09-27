@@ -3,6 +3,7 @@
 #include "OLED.h"
 #include "usart.h"
 #include "4G.h"
+#include "wifi_cfg.h"
 #include "MyFLASH.h"
 #include "main.h"
 #include "iic.h"
@@ -58,7 +59,9 @@ void BootLoader_Info(void)
 	U1_printf("[5]向外部FLASH下载程序\r\n");	
 	U1_printf("[6]使用外部FLASH内程序\r\n");	
 	U1_printf("[7]重启\r\n");
-	U1_printf("[0]ESP8266 AT 自测\r\n");	
+	U1_printf("[0]ESP8266 AT 自测\r\n");
+	U1_printf("[8]连WiFi\r\n");
+	U1_printf("[9]连服务器\r\n");	
 }
 
 /* BootLoader处理串口数据 */
@@ -131,6 +134,42 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 				U1_printf("  3) 模组供电是否够（3.3V，峰值电流大）\r\n");
 			}
 			BootLoader_Info();										//回到菜单
+		}
+		else if((datalen == 1) && (data[0] == '8'))										//连 WiFi：用 wifi_cfg.h 里的凭据
+		{
+			U1_printf("连 WiFi: %s ...\r\n", WIFI_SSID);
+			G4_Init(G4_BAUD_DEFAULT);
+
+			/* ⚠️ 顺序不能反：ESP-AT 默认是 SoftAP 模式，
+			 * 不先 AT+CWMODE=1 就 AT+CWJAP，会秒回 ERROR。 */
+			if(G4_SetStation() != G4_OK)
+			{
+				U1_printf("[结果] 设置 Station 模式失败 —— 模组可能没跑 AT 固件\r\n");
+			}
+			else if(G4_JoinAP(WIFI_SSID, WIFI_PASS) == G4_OK)
+			{
+				U1_printf("[结果] WiFi 连接成功\r\n");
+			}
+			else
+			{
+				U1_printf("[结果] 连 WiFi 失败 —— 查 ssid/密码 是否正确、热点是不是 2.4G\r\n");
+				U1_printf("        (ESP8266 只支持 2.4GHz，不支持 5GHz)\r\n");
+			}
+			BootLoader_Info();
+		}
+		else if((datalen == 1) && (data[0] == '9'))										//连服务器：TCP
+		{
+			U1_printf("连服务器 %s:%d ...\r\n", SERVER_HOST, SERVER_PORT);
+			G4_Init(G4_BAUD_DEFAULT);				/* 也初始化一次，[9] 才能单独执行；G4_Init 不复位模组，不会断掉 [8] 建立的连接 */
+			if(G4_TcpConnect(SERVER_HOST, SERVER_PORT) == G4_OK)
+			{
+				U1_printf("[结果] TCP 连接成功\r\n");
+			}
+			else
+			{
+				U1_printf("[结果] TCP 连接失败 —— 查穿透是否在线、端口是否映射、[8] 是否已连上 WiFi\r\n");
+			}
+			BootLoader_Info();
 		}
 		else if((datalen == 1) && (data[0] == '7'))										//如果数据长度1字节且字符是6
 		{
