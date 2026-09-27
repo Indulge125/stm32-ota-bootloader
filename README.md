@@ -259,10 +259,12 @@ python scripts/xmodem_send.py --port COM8 --file "别的固件.bin"
 |---|---|
 | `scripts/test_ota_server.py` | **OTA 服务器协议**：起一个本地服务器 + 模拟设备，核对协议头格式、长度、CRC，以及固件是否逐字节一致；同时确认 `PING` 路径仍是裸发（4b-2a 回归） |
 | `scripts/test_crc_equiv.py` | **CRC 零回归**：把 `boot.c` 里**真实的** `Xmodem_CRC16` / `Xmodem_CRC16_Update` 抽出来用 gcc 编译，在真实固件上按「整段 / 每 256 字节续算 / 逐字节续算」三种方式运行，与 `scripts/crc16.py` 对账 |
+| `scripts/test_macro_fix.py` | **分区宏展开**：从 `main.h` 抽出宏原文用 gcc 编译运行，核对 A 区容量 / 页数 / 起址算出来的值。这类 bug 编译和链接**都不会报错**，只有数值默默变错 —— 见下方「宏没括号」一节 |
 
 ```bash
-python scripts/test_ota_server.py     # 用例1 OTA_REQ 带头 / 用例2 PING 裸发
+python scripts/test_ota_server.py     # 用例1 OTA_REQ 带头 / 用例2 PING 裸发 / 用例3 注错必被检出
 python scripts/test_crc_equiv.py      # 三种调用方式都应得到同一个 CRC
+python scripts/test_macro_fix.py      # A 区容量应算出 28672、起址 0x08009000
 ```
 
 两个测试开头都会跑 CRC-16/XMODEM 的**已知向量自检**（`"123456789" → 0x31C3`）。
@@ -315,6 +317,38 @@ A 区复位向量为 `0x08009235`，落在 `0x08009000~0x0800FFFF` 内 ——
 **为什么只改一个宏就够**：BootLoader 里**没有硬编码的 A 区地址**，
 A 区起址由 `main.h:8-10` 从 `MyFlash_B_Page_Num` 推导，
 所以擦除、W25Q64→A 区搬运、`LOAD_A()` 跳转全部自动跟随。
+
+### 分区宏没括号，容量检查形同虚设（2026-09-27，被反例测试抓出）
+
+**现象**：为 4b-2b 新加的两道「固件长度不能超过 A 区容量」检查，在硬件上**完全不起作用**
+—— 拿一个 **31468 字节**的固件（A 区只有 28672）打进去，本该在写入前就被拒，
+结果一路打印「开始接收 31468 字节」，收了 30188 字节才因超时放弃。
+
+**根因**：`main.h` 里的分区宏没有括号：
+
+```c
+#define MyFlash_A_Page_Num   MyFlash_Page_Num - MyFlash_B_Page_Num   /* 展开就是 "64 - 36" */
+```
+
+而新写的判断是 `(uint32_t)MyFlash_A_Page_Num * MyFlash_Page_Size`，
+它被解析成 `(uint32_t)64 - (36 * 1024)` = `64 - 36864` —— **无符号回绕成 4294930496**。
+于是「长度 > 容量」永远为假，检查等于没写。
+
+**为什么以前一直没暴露**：这个宏在别处的用法都是实参位置
+（`MyFlash_EraseFlash(36, MyFlash_A_Page_Num)`）或 `地址 + i * 页大小` ——
+这两种上下文里运算符优先级恰好不出错。只有 `(cast)宏 * 1024` 这种新写法才踩中。
+
+**定位方法**：把 `main.h` 的宏原文抽出来，用 gcc 编译运行、把 `limit` 打出来 ——
+一眼看到 `0xFFFF7040` 而不是 `0x7000`。
+这类 bug **编译不报错、链接也不报错**，只有算出来的数值默默变错，靠读代码很容易滑过去。
+现已固化成 `scripts/test_macro_fix.py`（从 `main.h` 抽宏原文编译运行，核对容量/页数/起址）。
+
+**修复**：给三个宏都加括号（根因），并在 OTA 流程一开始**把 A 区容量打印出来** ——
+这一句当时就能让问题一眼可见，以后同类问题也不必靠猜。
+
+**教训**：三道校验写出来不等于校验有效。**没跑过反例，就没有证据说明它真的会拦。**
+
+---
 
 ## 已知限制
 

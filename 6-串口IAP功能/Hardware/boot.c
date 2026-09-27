@@ -41,6 +41,14 @@ load_a load_A;
 #define OTA_TOTAL_MS   60000	/* 收数据的总超时 */
 #define OTA_QUIET_MS   2000		/* 连续没收到字节就放弃（服务器块间延时 50ms） */
 
+/* 失败诊断：区分两种完全不同的病因，修法也不同。
+ *   溢出标志非 0        -> MCU 侧接收缓冲满过，+IPD 信封可能被截断导致解析错位
+ *   缓冲还压着不少字节  -> 有数据但没被认成载荷，多半就是错位了
+ *   两者都是 0          -> MCU 根本没收到，问题在 ESP8266 / TCP 那一侧 */
+#define OTA_DIAG()  U1_printf("[OTA]   诊断：溢出标志 %u，缓冲待处理 %u 字节，累计等待 %u ms\r\n", \
+                            (unsigned int)G4_RxOverflow(), (unsigned int)G4_RxLen(), \
+                            (unsigned int)waited)
+
 uint8_t OTA_NetDownload(void)
 {
 	uint8_t   b;
@@ -124,6 +132,9 @@ uint8_t OTA_NetDownload(void)
 		return 0;
 	}
 	U1_printf("[OTA] 长度 %u，期望 CRC %04X\r\n", (unsigned int)len, (unsigned int)crcExp);
+	U1_printf("[OTA] A 区容量 %u 字节（%u 页 × %u）\r\n",
+	          (unsigned int)limit, (unsigned int)MyFlash_A_Page_Num,
+	          (unsigned int)MyFlash_Page_Size);
 
 	/* 这两条必须挡在写入和搬运之前：
 	 *   长度 0  -> 搬运会擦完 A 区却一个字节都不写回去；
@@ -152,6 +163,7 @@ uint8_t OTA_NetDownload(void)
 			quiet = 0;
 			UpDataA.UpDataBuff[inPage ++] = b;
 			crcGot = Xmodem_CRC16_Update(crcGot, &b, 1);
+			if((got % 4096) == 0) U1_printf(".");	/* 进度点：只 1 个字符，约 1ms */
 			if(got < 16) head[got] = b;
 			last[got % 16] = b;
 			got ++;
@@ -169,15 +181,17 @@ uint8_t OTA_NetDownload(void)
 			quiet  ++;
 			if(quiet >= OTA_QUIET_MS)
 			{
-				U1_printf("[OTA] 连续 %d 毫秒没收到数据，放弃（已收 %u / %u 字节）\r\n",
+				U1_printf("\r\n[OTA] 连续 %d 毫秒没收到数据，放弃（已收 %u / %u 字节）\r\n",
 				          OTA_QUIET_MS, (unsigned int)got, (unsigned int)len);
+				OTA_DIAG();
 				G4_SetVerbose(1);
 				return 0;
 			}
 			if(waited >= OTA_TOTAL_MS)
 			{
-				U1_printf("[OTA] 总超时（%d 秒），已收 %u / %u 字节\r\n",
+				U1_printf("\r\n[OTA] 总超时（%d 秒），已收 %u / %u 字节\r\n",
 				          OTA_TOTAL_MS / 1000, (unsigned int)got, (unsigned int)len);
+				OTA_DIAG();
 				G4_SetVerbose(1);
 				return 0;
 			}
@@ -199,16 +213,19 @@ uint8_t OTA_NetDownload(void)
 	{
 		U1_printf("[OTA] 字节数不符：收到 %u，协议头声明 %u\r\n",
 		          (unsigned int)got, (unsigned int)len);
+		OTA_DIAG();
 		G4_SetVerbose(1);
 		return 0;
 	}
 	if(crcGot != (uint16_t)crcExp)
 	{
-		U1_printf("[OTA] CRC 不符：收到 %04X，期望 %04X\r\n",
+		U1_printf("\r\n[OTA] CRC 不符：收到 %04X，期望 %04X\r\n",
 		          (unsigned int)crcGot, (unsigned int)crcExp);
+		OTA_DIAG();
 		G4_SetVerbose(1);
 		return 0;
 	}
+	U1_printf("\r\n");
 	U1_printf("[OTA] 收完 %u 字节，传输 CRC %04X 通过\r\n",
 	          (unsigned int)len, (unsigned int)crcGot);
 	U1_printf("[OTA] 接收缓冲溢出标志：%u（应为 0）\r\n", (unsigned int)G4_RxOverflow());

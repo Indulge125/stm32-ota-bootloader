@@ -5,9 +5,17 @@
 #define MyFlash_Page_Size 		1024															//FLASH扇区大小
 #define MyFlash_Page_Num	 	64																//FLASH总扇区个数
 #define MyFlash_B_Page_Num	 	36																//B区扇区个数
-#define MyFlash_A_Page_Num   	MyFlash_Page_Num - MyFlash_B_Page_Num							//A区扇区个数
-#define MyFlash_A_Start_Page 	MyFlash_B_Page_Num												//A区起始扇区编号
-#define MyFlash_A_Start_Address	MyFlash_StartAddress + MyFlash_A_Start_Page * MyFlash_Page_Size	//A区起始地址
+#define MyFlash_A_Page_Num   	(MyFlash_Page_Num - MyFlash_B_Page_Num)							//A区扇区个数
+#define MyFlash_A_Start_Page 	(MyFlash_B_Page_Num)												//A区起始扇区编号
+#define MyFlash_A_Start_Address	(MyFlash_StartAddress + MyFlash_A_Start_Page * MyFlash_Page_Size)	//A区起始地址
+
+/* ⚠ 上面三个宏的括号不能省。
+ * 曾经它们没括号，而 A_Page_Num 展开是 "64 - 36"；
+ * 一旦有人写成 (uint32_t)MyFlash_A_Page_Num * 1024，
+ * 就会被解析成 (uint32_t)64 - (36 * 1024) —— 无符号回绕成 42 亿，
+ * 于是"长度是否超出 A 区容量"这类判断永远为假，检查形同虚设。
+ * 在实参位置（如 MyFlash_EraseFlash(36, MyFlash_A_Page_Num)）恰好不出错，
+ * 所以这个坑很隐蔽 —— 直到 2026-09-27 反例测试才把它挖出来。 */
 
 #define UpData_A_Flag				0x00000001													//状态标志位，置位表明需要更新A区
 
