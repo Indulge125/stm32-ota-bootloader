@@ -16,7 +16,7 @@
   5. 信封被喂数据的边界切成两半（每次只喂 2 字节）
   6. 1.5KB 大 +IPD（接近 TCP MSS）+ 奇数读批量
 """
-import os, subprocess, sys
+import os, re, subprocess, sys
 
 ROOT = r"d:\develop\stm32-ota固件升级"
 SRC_4G = os.path.join(ROOT, r"6-串口IAP功能\Hardware\4G.c")
@@ -34,9 +34,18 @@ if i0 < 0 or i1 < 0:
 code = src[i0:i1 + 2]
 if "G4_PayloadRead" not in code:
     sys.exit("★ 抽出的代码里没有 G4_PayloadRead")
-print("已从 4G.c 抽出状态机代码（%d 字符），含：%s"
-      % (len(code), " / ".join(sorted(
-          n for n in ("G4_PayloadRead", "G4_PayloadGet", "G4_PayloadReset") if n in code))))
+
+# 接收缓冲大小也从 4G.h 抽，别写死 —— 否则改了真实缓冲这里还对不上
+hdr = open(os.path.join(ROOT, r"6-串口IAP功能\Hardware\4G.h"),
+           encoding="utf-8-sig").read().replace("\r\n", "\n")
+m = re.search(r"#define\s+G4_RX_SIZE\s+(\d+)", hdr)
+if not m:
+    sys.exit("★ 从 4G.h 抽不出 G4_RX_SIZE")
+RX_SIZE = int(m.group(1))
+
+print("从 4G.c 抽出状态机代码（%d 字符）：%s" % (len(code), " / ".join(sorted(
+    n for n in ("G4_PayloadRead", "G4_PayloadGet", "G4_PayloadReset") if n in code))))
+print("从 4G.h 读出接收缓冲 G4_RX_SIZE = %d 字节" % RX_SIZE)
 
 HARNESS = r'''
 #include <stdio.h>
@@ -45,7 +54,7 @@ HARNESS = r'''
 #include <stdlib.h>
 
 /* ================= 接收缓冲的桩（模拟 4G.c 的线性缓冲 + 人工清零） ================= */
-#define G4_RX_SIZE 512
+#define G4_RX_SIZE __RX_SIZE__
 static uint8_t  s_rxBuf[G4_RX_SIZE];
 static volatile uint16_t s_rxLen = 0;
 static int s_overflow = 0;
@@ -113,7 +122,7 @@ static uint8_t *build_stream(const uint8_t *payload, uint32_t plen,
 static int run_case(const char *name, const uint8_t *payload, uint32_t plen,
                     uint32_t chunk, uint32_t feed_piece, uint16_t read_max)
 {
-	uint8_t *stream, *got, tmp[600];
+	uint8_t *stream, *got, tmp[4096];
 	uint32_t slen = 0, sent = 0, ngot = 0;
 	uint32_t guard = 0;
 	int bad = 0;
@@ -181,6 +190,16 @@ int main(void)
 	bad |= run_case("信封被切成两半  ", payload, 300, 128, 2,   7);
 	bad |= run_case("抽干后一次全喂  ", payload, 5000, 256, 511, 511);
 	bad |= run_case("读批量=511      ", payload, plen, 256, 265, 511);
+
+	/* 合并块 —— 这才是硬件上真正把 4b-2b-1 打挂的场景。
+	 * 写一页 W25Q64 要约 5~7ms 不排空缓冲，ESP8266 里就积压一个 256 字节块，
+	 * 于是下一个 +IPD 是合并后的 530~800 字节。旧的 512 缓冲连单个信封都装不下，
+	 * 必然丢字节 -> 信封错位 -> 剩下全被当噪声丢掉。
+	 * 硬件实测就是这个形状：收 12232 / 13000 字节后静默超时，溢出标志 1。 */
+	printf("\n  —— 合并块：+IPD 大于旧的 512 缓冲（本次修复的目标）——\n");
+	bad |= run_case("合并 530        ", payload, plen, 530, 539, 256);
+	bad |= run_case("合并 1024       ", payload, plen, 1024, 1033, 256);
+	bad |= run_case("合并 1900       ", payload, 6000, 1900, 1909, 256);
 
 	/* 定量对比 —— 这是本次修改的核心证据。
 	 * 同样 13000 字节，逐字节读 vs 批量读，G4_RxDrop 的总搬移量差多少。
@@ -257,7 +276,7 @@ int main(void)
 
 cfile = os.path.join(WORK, "pr.c")
 exe = os.path.join(WORK, "pr.exe")
-open(cfile, "w", encoding="utf-8").write(HARNESS)
+open(cfile, "w", encoding="utf-8").write(HARNESS.replace("__RX_SIZE__", str(RX_SIZE)))
 
 r = subprocess.run([GCC, "-O0", "-o", exe, cfile], capture_output=True)
 if r.returncode:

@@ -45,9 +45,12 @@ load_a load_A;
  *   溢出标志非 0        -> MCU 侧接收缓冲满过，+IPD 信封可能被截断导致解析错位
  *   缓冲还压着不少字节  -> 有数据但没被认成载荷，多半就是错位了
  *   两者都是 0          -> MCU 根本没收到，问题在 ESP8266 / TCP 那一侧 */
-#define OTA_DIAG()  U1_printf("[OTA]   诊断：溢出标志 %u，缓冲待处理 %u 字节，累计等待 %u ms\r\n", \
+/* 最大 +IPD 是关键：一旦超过 G4_RX_SIZE，丢字节就是必然的，
+ * 因为单个信封在接收缓冲里根本放不下。这个数只能测出来 ——
+ * 模组合不合并、合并多大，取决于它自己的缓冲和我们消费的快慢。 */
+#define OTA_DIAG()  U1_printf("[OTA]   诊断：溢出标志 %u，缓冲待处理 %u 字节，最大 +IPD %u 字节，累计等待 %u ms\r\n", \
                             (unsigned int)G4_RxOverflow(), (unsigned int)G4_RxLen(), \
-                            (unsigned int)waited)
+                            (unsigned int)G4_IpdMaxLen(), (unsigned int)waited)
 
 uint8_t OTA_NetDownload(void)
 {
@@ -239,7 +242,9 @@ uint8_t OTA_NetDownload(void)
 	U1_printf("\r\n");
 	U1_printf("[OTA] 收完 %u 字节，传输 CRC %04X 通过\r\n",
 	          (unsigned int)len, (unsigned int)crcGot);
-	U1_printf("[OTA] 接收缓冲溢出标志：%u（应为 0）\r\n", (unsigned int)G4_RxOverflow());
+	U1_printf("[OTA] 溢出标志 %u（应为 0），最大 +IPD %u 字节（缓冲 %u）\r\n",
+	          (unsigned int)G4_RxOverflow(), (unsigned int)G4_IpdMaxLen(),
+	          (unsigned int)G4_RX_SIZE);
 
 	/* ---- 校验 2：从 W25Q64 回读重算 ----
 	 * 这一步才证明"真的落盘写对了"。PageProgram 没有返回值、

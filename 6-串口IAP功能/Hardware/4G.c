@@ -194,11 +194,13 @@ void G4_RxDrop(uint16_t n)
 /* +IPD 解析状态：0=在找信封 2=正在收载荷 */
 static uint8_t  s_ipdState = 0;
 static uint32_t s_ipdRemain = 0;
+static uint32_t s_ipdMax = 0;		/* 见过的最大 +IPD 长度 */
 
 void G4_PayloadReset(void)
 {
 	s_ipdState  = 0;
 	s_ipdRemain = 0;
+	s_ipdMax    = 0;
 	G4_ClearRx();
 }
 
@@ -289,6 +291,7 @@ uint16_t G4_PayloadRead(uint8_t *dst, uint16_t max)
 			continue;					/* 空信封，回去继续找下一个 */
 		}
 		s_ipdRemain = len;
+		if(len > s_ipdMax) s_ipdMax = len;	/* 记录最大信封，超缓冲就必然丢字节 */
 		s_ipdState  = 2;
 		/* 不 return —— 立刻回到循环开头把这批载荷取走，
 		 * 少一次空转，也少一轮调用方的 Delay */
@@ -387,6 +390,14 @@ uint8_t G4_RxTest(uint32_t timeout_ms)
 uint16_t G4_RxLen(void)
 {
 	return s_rxLen;
+}
+
+/* 本次连接里见过的最大 +IPD 长度。
+ * 它一旦超过 G4_RX_SIZE，丢字节就是必然的 —— 单个信封在缓冲里放不下。
+ * 这个数只能测出来：模组是否合并、合并多大，取决于它自己的缓冲和我们的消费速度。 */
+uint32_t G4_IpdMaxLen(void)
+{
+	return s_ipdMax;
 }
 
 const uint8_t *G4_RxBuf(void)
