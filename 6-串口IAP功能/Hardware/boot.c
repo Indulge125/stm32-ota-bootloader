@@ -61,7 +61,8 @@ void BootLoader_Info(void)
 	U1_printf("[7]重启\r\n");
 	U1_printf("[0]ESP8266 AT 自测\r\n");
 	U1_printf("[8]连WiFi\r\n");
-	U1_printf("[9]连服务器\r\n");	
+	U1_printf("[9]连服务器\r\n");
+	U1_printf("[t]接收测试(4a)\r\n");	
 }
 
 /* BootLoader处理串口数据 */
@@ -168,6 +169,19 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 			else
 			{
 				U1_printf("[结果] TCP 连接失败 —— 查穿透是否在线、端口是否映射、[8] 是否已连上 WiFi\r\n");
+			}
+			BootLoader_Info();
+		}
+		else if((datalen == 1) && (data[0] == 't'))										//4a：接收测试，只看 +IPD 解析对不对
+		{
+			U1_printf("请在服务器端发送一段数据（30 秒超时）...\r\n");
+			if(G4_RxTest(30000) == G4_OK)
+			{
+				U1_printf("[结果] +IPD 解析正常\r\n");
+			}
+			else
+			{
+				U1_printf("[结果] 没收到数据 —— 查：先发 [8] 连WiFi、[9] 连服务器\r\n");
 			}
 			BootLoader_Info();
 		}

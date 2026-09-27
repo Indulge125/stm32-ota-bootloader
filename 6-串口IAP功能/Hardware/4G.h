@@ -65,6 +65,10 @@ uint8_t G4_Connect(const char *ssid, const char *pass,
                    const char *host, uint16_t port);
 
 uint16_t G4_RxLen(void);
+/* 【4a 联调用】等待一段 +IPD 数据并打印出来（长度 + 内容）。
+ * 返回 G4_OK 表示收到，G4_ERR_TIMEOUT 表示超时。
+ * 只适合小段数据（接收缓冲 512 字节）；收大固件要走流式处理。 */
+uint8_t G4_RxTest(uint32_t timeout_ms);
 const uint8_t *G4_RxBuf(void);
 
 void USART2_IRQHandler(void);

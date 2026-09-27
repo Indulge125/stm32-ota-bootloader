@@ -163,6 +163,80 @@ void G4_ClearRx(void)
 	memset(s_rxBuf, 0, G4_RX_SIZE);
 }
 
+/* ================= 【4a 联调用】+IPD 接收测试 =================
+ * AT 模式下模组收到 TCP 数据会吐出：  +IPD,<长度>:<原始字节>
+ * 长度是十进制文本，冒号之后就是要按字节数取走的载荷。
+ *
+ * 本函数在接收缓冲里找 +IPD，解析长度，等载荷到齐后打印出来。
+ * ⚠️ 只适合小段数据（G4_RX_SIZE = 512）；收真实固件必须改成
+ *    边收边写 W25Q64 的流式处理，不能靠这个缓冲兜。
+ */
+uint8_t G4_RxTest(uint32_t timeout_ms)
+{
+	uint8_t  *b;
+	uint16_t  n, i, j, k;
+	uint32_t  len;
+	uint32_t  waited = 0;
+
+	G4_ClearRx();
+
+	while(waited < timeout_ms)
+	{
+		b = (uint8_t *)G4_RxBuf();
+		n = G4_RxLen();
+
+		/* 在缓冲里找 "+IPD," */
+		for(i = 0; (uint32_t)i + 5 <= n; i ++)
+		{
+			if(memcmp(&b[i], "+IPD,", 5) != 0)
+			{
+				continue;
+			}
+
+			/* 解析十进制长度，直到 ':' */
+			len = 0;
+			j = i + 5;
+			while((j < n) && (b[j] >= '0') && (b[j] <= '9'))
+			{
+				len = len * 10 + (uint32_t)(b[j] - '0');
+				j ++;
+			}
+			if((j >= n) || (b[j] != ':'))
+			{
+				continue;					/* 长度还没收全，继续等 */
+			}
+			j ++;							/* 跳过 ':' */
+
+			if((uint32_t)(n - j) < len)
+			{
+				continue;					/* 载荷还没到齐，继续等 */
+			}
+
+			/* 载荷到齐了 */
+			U1_printf("[IPD] 收到 %u 字节: ", (unsigned int)len);
+			for(k = 0; k < len; k ++)
+			{
+				if((b[j + k] >= 0x20) && (b[j + k] < 0x7F))
+				{
+					U1_printf("%c", b[j + k]);
+				}
+				else
+				{
+					U1_printf("\\x%02X", b[j + k]);		/* 非可见字节用十六进制 */
+				}
+			}
+			U1_printf("\r\n");
+			return G4_OK;
+		}
+
+		Delay_ms(20);
+		waited += 20;
+	}
+
+	U1_printf("[IPD] 超时：%ums 内没收到 +IPD\r\n", (unsigned int)timeout_ms);
+	return G4_ERR_TIMEOUT;
+}
+
 uint16_t G4_RxLen(void)
 {
 	return s_rxLen;
