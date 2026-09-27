@@ -335,13 +335,30 @@ uint8_t G4_TcpConnect(const char *host, uint16_t port)
 	sprintf(cmd, "AT+CIPSTART=\"TCP\",\"%s\",%u", host, (unsigned int)port);
 	/* 域名解析 + 建连，超时给 10s */
 	G4_ClearRx();
+	/* ⚠️ CIPSTART 走 G4_SendCmd，而 G4_SendCmd 不打日志。
+	 * 这条命令的结果是 CONNECT 还是 ERROR、还是超时，必须看得见 ——
+	 * 否则"连接成功"是真是假没法判断（曾经因为日志里看不到这条，
+	 * 误判成"命令根本没发出去"）。所以这里手动补 [TX]/[RX]。 */
+	if(s_verbose)
+	{
+		U1_printf("[TX] %s\r\n", cmd);
+	}
 	G4_SendCmd(cmd);
 	/* 不同固件回 "OK" / "CONNECT" / "ALREADY CONNECTED"，任一都算通 */
 	if(G4_WaitResp("CONNECT", 10000) == G4_OK ||
 	   G4_WaitResp("ALREADY", 500) == G4_OK ||
 	   G4_WaitResp("OK", 500) == G4_OK)
 	{
+		if(s_verbose)
+		{
+			G4_LogRx();
+		}
 		return G4_OK;
+	}
+	if(s_verbose)
+	{
+		G4_LogRx();
+		G4_LogRet(G4_ERR_TIMEOUT);
 	}
 	return G4_ERR_TIMEOUT;
 }
