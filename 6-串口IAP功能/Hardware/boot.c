@@ -289,15 +289,22 @@ uint8_t OTA_NetDownload(void)
 	 *     num 不是 4 的倍数会无符号回绕、一路写穿 FLASH。
 	 * 注意它是搬运长度，**不是固件真实大小** —— 别拿它当固件大小上报。 */
 	OTA_Info.FileLen[0] = (len + 3) & ~((uint32_t)3);
-	UpDataA.W25Q64_BlockNum = 0;
-	BootStaFlag |= UpData_A_Flag;
-
 	U1_printf("[OTA] 就绪：FileLen[0] = %u（固件真实长度 %u）\r\n",
 	          (unsigned int)OTA_Info.FileLen[0], (unsigned int)len);
-	U1_printf("[OTA] 交给搬运 ...\r\n");
 
+	/* ---- 提交点 ----
+	 * OTA_Flag 落进 EEPROM 的这一刻才算提交。
+	 * 在此之前任何一步失败（丢包 / CRC 挂 / 超时 / 断电），标志都还是 0，
+	 * 复位后照常跳 A 区跑旧版本 —— 设备不会因为一次失败的升级而变砖。
+	 * 搬运阶段断电同样安全：标志是搬运**全部完成之后**才清的，重启会重搬。 */
+	OTA_Info.OTA_Flag = OTA_SET_FLAG;
+	AT24C02_WriteOTAInfo();
+
+	U1_printf("[OTA] OTA_Flag 已置位并写入 AT24C02 —— 即将复位，由 BootLoader 自动搬运\r\n");
 	G4_SetVerbose(1);
-	return 1;
+	Delay_ms(200);			/* 让上面这行打完再复位 */
+	NVIC_SystemReset();
+	return 1;			/* 到不了这里，留着让编译器安心 */
 }
 
 /* BootLoader分支判断 */
@@ -460,14 +467,12 @@ void BootLoader_Event(uint8_t *data, uint16_t datalen)
 			}
 			BootLoader_Info();
 		}
-		else if((datalen == 1) && (data[0] == 'o'))										//4b-2b-1：内网 OTA 下载到 W25Q64
+		else if((datalen == 1) && (data[0] == 'o'))										//4b-2b：内网 OTA（收固件写 W25Q64 -> 置标志 -> 复位搬运）
 		{
-			U1_printf("内网 OTA：收固件写 W25Q64 块 0（不置 OTA_Flag，校验过后交给搬运）\r\n");
-			if(OTA_NetDownload())
-			{
-				BootLoader_Info();
-				return;				/* 已置 UpData_A_Flag，让主循环去搬运，别在这里继续往下走 */
-			}
+			U1_printf("内网 OTA：收固件写 W25Q64 块 0（三道校验通过才置 OTA_Flag 并复位）\r\n");
+			/* 成功时 OTA_NetDownload() 内部会置 OTA_Flag 并复位，不会返回；
+			 * 能返回到这里就说明校验没过（或不满足前置条件）。 */
+			OTA_NetDownload();
 			U1_printf("[OTA] 下载未通过校验，未触发搬运 —— A 区保持原样，可直接重试\r\n");
 			BootLoader_Info();
 		}
