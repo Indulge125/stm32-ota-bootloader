@@ -57,3 +57,6 @@ wifi_cfg.h
 # OneNET 设备密钥（含 accessKey，不进仓库）
 onenet_cfg.json
 !onenet_cfg.json.example
+# A 区的 OneNET 接入配置（含 accessKey，不进仓库）
+onenet_cfg.h
+!onenet_cfg.h.example

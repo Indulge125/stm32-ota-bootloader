@@ -1,0 +1,30 @@
+#ifndef __ONENET_CFG_H
+#define __ONENET_CFG_H
+
+/* ================= OneNET 设备接入配置模板 =================
+ * 用法：把本文件复制成 onenet_cfg.h，填入自己的值。
+ *   copy onenet_cfg.h.example onenet_cfg.h
+ *
+ * onenet_cfg.h 已被 .gitignore 排除，不会进公开仓库。
+ * 这一点必须守住：**accessKey 等价于设备身份** ——
+ * 泄漏出去，别人可以拿它冒充你的设备收发数据、上报固件版本，
+ * 甚至把你的设备从升级任务里踢出去（版本号被改）。
+ */
+
+/* ---------- 设备三元组 ----------
+ * 控制台 → 设备接入管理 → 点设备名 → 设备详情
+ *   产品ID   : 产品详情页的「产品ID」
+ *   设备名称 : 创建设备时填的那个名字
+ *   设备密钥 : 设备详情里的「设备密钥」
+ * 三个值必须与控制台逐字一致（区分大小写），错一个字符就会 10403 auth failed。 */
+#define ONENET_PRO_ID       "你的产品ID"
+#define ONENET_DEV_NAME     "你的设备名称"
+#define ONENET_ACCESS_KEY   "你的设备密钥"
+
+/* ---------- WiFi 凭据 ----------
+ * 直接复用 B 区那份 wifi_cfg.h，避免同一个 WiFi 密码在两个文件里各存一份
+ * （A 区工程已经把 B 区 Hardware 目录加进 Include Paths，能找到它）。
+ * wifi_cfg.h 同样已被 .gitignore 排除。 */
+#include "wifi_cfg.h"
+
+#endif
