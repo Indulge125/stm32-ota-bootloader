@@ -505,9 +505,18 @@ void HTTP_End(void)
 {
 	if(s_open)
 	{
+		/* ⚠️ 这里的 AT+CIPCLOSE 十有八九会回 ERROR，**那是正常的，不是故障**。
+		 *
+		 * 因为每个请求都带 Connection: close，服务器响应完就主动关了连接。
+		 * 此时再发 CIPCLOSE，模组发现"没有活动连接可关"，就回 ERROR。
+		 * 但 G4_TcpClose() 内部把它当失败，会打一行 [FAIL] 模组回ERROR/FAIL ——
+		 * 那行日志会让人以为请求出问题了，是个纯粹的假警报。
+		 *
+		 * 所以先在 verbose 关掉的状态下关连接，把这条噪音压掉，再恢复。
+		 * （真正的连接失败在 HTTP_Start 里早就被拦下了，走到这儿就是正常收尾。） */
+		G4_SetVerbose(0);
 		G4_TcpClose();
+		G4_SetVerbose(1);
 		s_open = 0;
 	}
-	/* 恢复 verbose，免得下次调 HTTP_Start 之前其它模块的 AT 日志是哑的 */
-	G4_SetVerbose(1);
 }
