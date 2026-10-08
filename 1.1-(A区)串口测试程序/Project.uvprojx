@@ -780,6 +780,21 @@
               <FileType>5</FileType>
               <FilePath>..\6-串口IAP功能\Hardware\ota_layout.h</FilePath>
             </File>
+            <File>
+              <FileName>onenet_cfg.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\onenet_cfg.h</FilePath>
+            </File>
+            <File>
+              <FileName>onenet_http.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\onenet_http.c</FilePath>
+            </File>
+            <File>
+              <FileName>onenet_http.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\onenet_http.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
