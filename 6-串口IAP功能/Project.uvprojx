@@ -751,16 +751,6 @@
               <FilePath>.\Hardware\W25Q64.h</FilePath>
             </File>
             <File>
-              <FileName>4G.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Hardware\4G.c</FilePath>
-            </File>
-            <File>
-              <FileName>4G.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\Hardware\4G.h</FilePath>
-            </File>
-            <File>
               <FileName>W25Q64_Ins.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\Hardware\W25Q64_Ins.h</FilePath>
