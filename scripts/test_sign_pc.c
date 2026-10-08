@@ -1,4 +1,4 @@
-/* PC 端自检入口 —— 给 scripts/test_sign.py 用 gcc 编译运行。
+﻿/* PC 端自检入口 —— 给 scripts/test_sign.py 用 gcc 编译运行。
  *
  * 为什么要在 PC 上先跑：
  *   同一份 SHA1 源码，x86 上对不代表 Cortex-M3 上对（char 有无符号、

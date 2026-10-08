@@ -26,7 +26,17 @@ import sys
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 BOM = b"\xef\xbb\xbf"
+# 编译产物目录，本来就不该动
 SKIP_DIRS = {"Objects", "Listings", "DebugConfig", "RTE", "__pycache__", ".git"}
+
+# 存档 / 实验样本目录 —— 这些地方「没有 BOM」或「是 GBK」是**故意的**，
+# 补 BOM 会破坏它们的用途，必须整个跳过：
+#   OTA升级原版/    改动前的原版存档；加了 BOM 就不再是"原版"，失去对照意义
+#   _tools/         一次性脚本目录，里面有 _enctest/ 编码实验样本
+#                   （A_utf8_nobom.c / B_utf8_nobom.c / A_gbk.c / gbk_src.c
+#                    / utf8_无BOM_默认.c —— 名字就写明了它们该是什么编码）
+SKIP_PATH_PARTS = {"_tools", "OTA升级原版"}
+
 EXTS = (".c", ".h")
 
 
@@ -37,7 +47,8 @@ def has_non_ascii(b):
 def fix_tree(root):
     changed, ok, ascii_only = [], 0, 0
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        dirnames[:] = [d for d in dirnames
+                       if d not in SKIP_DIRS and d not in SKIP_PATH_PARTS]
         for fn in filenames:
             if not fn.lower().endswith(EXTS):
                 continue
