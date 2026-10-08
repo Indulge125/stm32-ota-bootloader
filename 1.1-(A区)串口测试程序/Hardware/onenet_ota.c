@@ -280,8 +280,13 @@ static uint8_t StepReportStatus(uint32_t tid, uint32_t step)
 	rc = HTTP_Start("POST", path, body, (uint16_t)strlen(body), 0, &resp);
 	if(rc != HTTP_OK) return OTA_R_FAIL_STATUS;
 
-	/* 这里不读 body：状态上报的响应很短，而且我们只关心有没有被拒。
-	 * 直接收尾，省一次读取和一次超时判断。 */
+	/* 把 body 读掉再关连接。
+	 * 不读通常也能跑（模组会在 CIPCLOSE 时丢弃未读数据），但那是依赖模组行为，
+	 * 一旦某个固件版本把残留数据当成下一个连接的 +IPD 投递，就会污染下一片的
+	 * 响应解析 —— 表现为随机某一片解析失败，这种 bug 极难定位。
+	 * 代价只有十几字节的读取，不值得赌。
+	 * 复用 s_json 缓冲：此时 /version 和 /check 都已经用完了。 */
+	ReadBodyAll(s_json, sizeof(s_json), resp.content_len, 2000);
 	HTTP_End();
 	return (resp.status == 200) ? OTA_R_OK : OTA_R_FAIL_STATUS;
 }
@@ -320,6 +325,17 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 		HTTP_Resp resp;
 		uint16_t  k;
 
+		/* ⚠️ 每一轮都重新关一次 verbose —— 这不是多余。
+		 *
+		 * HTTP_Start() 成功返回时会把 verbose 开回 1（为了让调用者能看见响应），
+		 * 而上一轮的**进度上报**也是一次 HTTP_Start，同样会把它开回来。
+		 * 所以"在 HTTP_End() 之后关一次"是不够的：只要这一轮上报过进度，
+		 * 下一轮的 G4_TcpConnect 就又会 dump 整个接收缓冲。
+		 *
+		 * 实测踩过：日志里出现成片的 [TX]/[RX]，随后丢字节卡死在下载中途。
+		 * 收固件时 AT 日志一次 dump 就能把缓冲吃掉 —— 必须每轮重置。 */
+		G4_SetVerbose(0);
+
 		if(n > OTA_CHUNK_SIZE) n = OTA_CHUNK_SIZE;
 
 		/* Range 是**闭区间**："0-1023" 表示前 1024 个字节。
@@ -332,6 +348,14 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 		U32ToStr(tid, tail);
 		strcat(tail, "/download");
 		if(HTTP_DevPath(path, sizeof(path), tail) != 0) { G4_SetVerbose(1); return OTA_R_FAIL_DOWNLOAD; }
+
+		/* 每片打一行带片号的日志。
+		 * 没有它，"卡住"只能看出一堆一模一样的 HTTP 206，不知道停在第几片；
+		 * 有了它，串口最后一行就是答案。 */
+		U1_printf("[OTA] 片 %u/%u  Range %s\r\n",
+		          (unsigned)(off / OTA_CHUNK_SIZE + 1),
+		          (unsigned)((size + OTA_CHUNK_SIZE - 1) / OTA_CHUNK_SIZE),
+		          range);
 
 		rc = HTTP_Start("GET", path, 0, 0, range, &resp);
 		if(rc != HTTP_OK)
@@ -386,12 +410,7 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 			}
 		}
 		HTTP_End();
-
-		/* ⚠️ 重新关掉 AT 日志。
-		 * HTTP_End() 内部为了压掉 CIPCLOSE 的假 ERROR，会把 verbose 关掉再恢复成 1，
-		 * 所以每片收尾之后它又开了。下一片的 G4_TcpConnect 就会 dump 一次接收缓冲 ——
-		 * 不在这里重新关掉，13 片下来丢字节是迟早的事。 */
-		G4_SetVerbose(0);
+		/* 这里不再关 verbose —— 循环顶部每轮会统一关一次，见那里的注释 */
 
 		/* --- 写 W25Q64 ---
 		 * Page Program 一次最多 256 字节，且**不能跨页边界**（跨了会绕回页首，

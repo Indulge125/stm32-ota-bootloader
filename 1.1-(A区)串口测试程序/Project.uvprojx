@@ -795,6 +795,16 @@
               <FileType>5</FileType>
               <FilePath>.\Hardware\onenet_http.h</FilePath>
             </File>
+            <File>
+              <FileName>onenet_ota.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\onenet_ota.c</FilePath>
+            </File>
+            <File>
+              <FileName>md5.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\md5.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
