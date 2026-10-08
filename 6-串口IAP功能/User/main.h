@@ -1,6 +1,11 @@
 ﻿#ifndef __MAIN_H
 #define __MAIN_H
 
+/* OTA 相关的结构体与标志值已抽到 Hardware/ota_layout.h ——
+ * 那是 A 区 App 与 B 区 BootLoader 的共享契约，两个工程必须引用同一份定义。
+ * 本文件只保留 BootLoader 自己关心的东西：Flash 分区宏、运行期标志。 */
+#include "ota_layout.h"
+
 #define MyFlash_StartAddress 	0x08000000														//FLASH起始地址
 #define MyFlash_Page_Size 		1024															//FLASH扇区大小
 #define MyFlash_Page_Num	 	64																//FLASH总扇区个数
@@ -26,18 +31,6 @@
 #define	W25Q64_DoLo_Xmodem_FLAG		0x00000020
 #define	W25Q64_To_Flash_Dolo_FLAG	0x00000040
 
-#define OTA_SET_FLAG			0x0a050301														//OTA_Flag对勾状态对应的数值，如果OTA_Flag等于该值，说明需要OTA更新A区
-
-typedef struct
-{								
-	/*AT24c02一页8个字节，OTA_Flag 4个字节，FileLen总共5*4=20个字节，两个加在一起就是24个字节，刚好循环写3页*/
-	uint32_t OTA_Flag;			//标志性的变量，等于OTA_SET_FLAG定义的值，说明需要OTA更新A区
-	uint32_t FileLen[11];		//W25Q64中不同块中程序固件的长度，0号成员固定对应W25Q64中程序编码0的块，用于OTA
-	uint8_t  OTA_Ver[32];
-}OTA_InfoCB;					//OTA相关的信息结构体，需要保存到24c02
-
-#define OTA_INFOCB_SIZE			sizeof(OTA_InfoCB)		//OTA相关的信息结构体占用的字节长度
-	
 typedef struct
 {								
 	uint8_t UpDataBuff[MyFlash_Page_Size];				//更新A区时，用于保存从W25Q64中读取的数据
@@ -47,7 +40,6 @@ typedef struct
 	uint32_t XmodemCRC;
 }UpDataA_CB;											//更新A区用的结构体
 
-extern OTA_InfoCB OTA_Info;								//外部声明变量
 extern UpDataA_CB UpDataA;								//外部声明变量
 extern uint32_t BootStaFlag;							//外部声明变量
 

@@ -1,0 +1,7 @@
+{
+  "_说明": "复制为 onenet_cfg.json 后填入真实值；onenet_cfg.json 必须 gitignore",
+  "access_key": "在这里填设备密钥（控制台 设备详情 → 设备密钥）",
+  "pro_id": "Y6O759jbtX",
+  "dev_name": "upgrade",
+  "api_base": "http://iot-api.heclouds.com/fuse-ota"
+}

@@ -2,7 +2,9 @@
 #include "iic.h"
 #include "Delay.h"
 #include "m24c02.h"
-#include "main.h"
+/* 只需要 OTA_InfoCB 的布局，不该把 BootLoader 的分区宏拽进来。
+ * 契约单独成文件后，这里只引契约。 */
+#include "ota_layout.h"
 #include "string.h"
 
 /* AT24C02一共能存储256个字节，每一页能存储8个字节 */

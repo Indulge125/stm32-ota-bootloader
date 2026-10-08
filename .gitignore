@@ -54,3 +54,6 @@ __pycache__/
 # ============ 本机专用配置（含 WiFi 密码，不进仓库）============
 wifi_cfg.h
 !wifi_cfg.h.example
+# OneNET 设备密钥（含 accessKey，不进仓库）
+onenet_cfg.json
+!onenet_cfg.json.example

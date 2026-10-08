@@ -2,13 +2,35 @@
 #include "Delay.h"
 #include "OLED.h"
 #include "usart.h"
+#include "onenet_token.h"
+#include "ota_layout.h"
 
+/* 应用版本号：OTA 升级包的目标版本必须与此字面量一致。
+ * 改版本只改这一处 —— 开机打印和以后向平台上报都用它。 */
+#define APP_VERSION		"1.0.0"
+
+/* OTA 信息在 RAM 里的实例。ota_layout.h 只给"布局"（类型和声明），
+ * 每个可执行体各自持有一份数据 —— 所以这里必须定义一次，
+ * 否则链接器报 Undefined symbol OTA_Info（m24c02.c 要用它）。
+ * B 区的 BootLoader 在自己 main.c 里也有一份同名实例，两者互不影响。 */
+OTA_InfoCB OTA_Info;
 
 int main(void)
 {
 	OLED_Init();
-	OLED_ShowString(1,1,"XZY"); 
+	OLED_ShowString(1,1,"XZY");
 	USART1_Init(9600);
+	U1_printf("APP v%s\r\n", APP_VERSION);		//开机版本标识：串口一眼看出升级是否生效
+
+	/* 签名自检：Token 算错时服务器只会笼统回一句 "auth failed"，
+	 * 先在这里跑一遍，把"算法写错"和"网络/配置问题"分开。
+	 * 失败时打印的是第一个失败的用例编号，对照 sha1.c / onenet_token.c 的注释定位。 */
+	{
+		uint8_t rc = OneNet_TokenSelfTest();
+		if(rc == 0)	U1_printf("Token SelfTest: PASS\r\n");
+		else		U1_printf("Token SelfTest: FAIL rc=%d\r\n", rc);
+	}
+
 	U1_printf("%d %c %x\r\n",0x30, 0x30, 0x30);
 	while(1)
 	{

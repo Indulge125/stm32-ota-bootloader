@@ -1,4 +1,4 @@
-#ifndef __BOOT_H
+﻿#ifndef __BOOT_H
 #define __BOOT_H
 
 typedef void (*load_a)(void);

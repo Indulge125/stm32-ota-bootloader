@@ -1,0 +1,53 @@
+{
+  "_说明": "MCU 端 SHA1/HMAC/base64 实现的自检向量。用合成密钥生成，不含真实凭据。",
+  "_算法": "sign = base64( HMAC-SHA1( base64decode(key), et + '\n' + method + '\n' + res + '\n' + version ) )",
+  "sha1_vectors": [
+    {
+      "input_utf8": "",
+      "sha1_hex": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "input_utf8": "abc",
+      "sha1_hex": "a9993e364706816aba3e25717850c26c9cd0d89d"
+    },
+    {
+      "input_utf8": "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+      "sha1_hex": "84983e441c3bd26ebaae4aa1f95129e5e54670f1"
+    },
+    {
+      "input_utf8": "123456789",
+      "sha1_hex": "f7c3bc1d808e04732adf679965ccc34ca7ae3441"
+    }
+  ],
+  "hmac_sha1_vectors": [
+    {
+      "key_hex": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "data_utf8": "Hi There",
+      "hmac_sha1_hex": "b617318655057264e28bc0b6fb378c8ef146be00",
+      "hmac_sha1_b64": "thcxhlUFcmTii8C2+zeMjvFGvgA="
+    },
+    {
+      "key_hex": "4a656665",
+      "data_utf8": "what do ya want for nothing?",
+      "hmac_sha1_hex": "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79",
+      "hmac_sha1_b64": "7/zfauXrL6LSdBbV8YTfnCWafHk="
+    },
+    {
+      "key_hex": "6b6579",
+      "data_utf8": "The quick brown fox jumps over the lazy dog",
+      "hmac_sha1_hex": "de7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9",
+      "hmac_sha1_b64": "3nybhbi3iqa8ino29wqQcBydtNk="
+    }
+  ],
+  "token_case": {
+    "access_key_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+    "access_key_raw_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "et": 1767225600,
+    "method": "sha1",
+    "version": "2022-05-01",
+    "res": "products/Y6O759jbtX/devices/upgrade",
+    "string_for_signature": "1767225600\nsha1\nproducts/Y6O759jbtX/devices/upgrade\n2022-05-01",
+    "sign_b64": "hUq2AGdEdN8EdT5jBcq1m/jjzEM=",
+    "expected_authorization": "version=2022-05-01&res=products%2FY6O759jbtX%2Fdevices%2Fupgrade&et=1767225600&method=sha1&sign=hUq2AGdEdN8EdT5jBcq1m%2FjjzEM%3D"
+  }
+}
