@@ -8,7 +8,7 @@
      两者必须对不上（证明"CRC 通过"这件事本身是有意义的：
      正常路径下服务器按自己发的文件算 CRC，永远自洽，压根测不出校验有没有生效）
 """
-import os, socket, subprocess, sys, time
+import os, socket, subprocess, sys, tempfile, time
 
 ROOT = r"d:\develop\stm32-ota固件升级"
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
@@ -21,12 +21,19 @@ FW = os.path.join(ROOT, r"1.1-(A区)串口测试程序", "Objects", "Project.bin
 
 
 def run_case(req, expect_header, extra=None, expect_crc_match=True, fw=None):
+    # 服务端的进度输出写到**临时文件**，不要用 subprocess.PIPE。
+    #
+    # ⚠️ 为什么：服务端每发一块就打一行"发送进度"，而本测试直到最后才读输出。
+    #    Windows 的匿名管道缓冲只有约 4KB —— 固件 13000 字节时进度输出约 2.3KB，
+    #    塞得下，所以一直没暴露；固件涨到 23628 字节后 93 行约 4.2KB 就填满了，
+    #    服务端的 print 随即**阻塞**，传输停在中途，表现成"收不到数据超时"。
+    #    这是脚手架的问题，不是协议的问题。写文件不会阻塞，事后也还能查。
+    log = tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace")
     srv = subprocess.Popen(
         [sys.executable, "ota_server.py", "--port", str(PORT), "--delay", "0.001"]
         + (extra or []),
         cwd=os.path.join(ROOT, "scripts"),
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding="utf-8", errors="replace")
+        stdout=log, stderr=subprocess.STDOUT)
     time.sleep(1.5)                     # 等它 bind + listen
 
     try:
@@ -90,11 +97,29 @@ def run_case(req, expect_header, extra=None, expect_crc_match=True, fw=None):
     finally:
         srv.terminate()
         try:
-            out = srv.communicate(timeout=5)[0]
+            srv.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            srv.kill(); out = ""
+            srv.kill(); srv.wait(timeout=5)
+
+        log.seek(0)
+        out = log.read()
+        log.close()
+
         print("  --- 服务器输出 ---")
-        for l in (out or "").splitlines():
+        # 进度行会刷出几十上百条（用 \r 分隔，写进文件后 splitlines 会逐条拆开），
+        # 只留最后一条 —— 前面那些不提供信息，只会把有用的行挤下去。
+        lines = (out or "").splitlines()
+        shown, i = [], 0
+        while i < len(lines):
+            if "发送进度" in lines[i]:
+                j = i
+                while j < len(lines) and "发送进度" in lines[j]:
+                    j += 1
+                shown.append(lines[j-1])
+                i = j
+            else:
+                shown.append(lines[i]); i += 1
+        for l in shown:
             print("    | " + l)
         print()
 
