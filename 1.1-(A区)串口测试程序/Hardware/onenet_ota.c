@@ -86,6 +86,20 @@ static uint8_t JsonU32(const char *json, const char *key, uint32_t *out)
 	return 1;
 }
 
+/* 把 16 字节摘要转成 32 个十六进制小写字符（+ '\0'） */
+static void Md5ToHex(const uint8_t *digest, char *out)
+{
+	static const char HEX[] = "0123456789abcdef";
+	uint8_t i;
+
+	for(i = 0; i < MD5_DIGEST_SIZE; i ++)
+	{
+		out[i*2 + 0] = HEX[digest[i] >> 4];
+		out[i*2 + 1] = HEX[digest[i] & 0x0F];
+	}
+	out[MD5_DIGEST_SIZE*2] = '\0';
+}
+
 /* 从 JSON 文本里取 "key":"<字符串>" 的值（不含引号） */
 static uint8_t JsonStr(const char *json, const char *key, char *out, uint16_t cap)
 {
@@ -313,7 +327,7 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 	MD5_CTX     ctx;
 	uint8_t     digest[MD5_DIGEST_SIZE];
 	char        got_md5[40];
-	uint8_t     i, rc;
+	uint8_t     rc;
 
 	/* --- 擦除 --- */
 	/* W25Q64 的 Page Program 只能把 1 写成 0，要先把目标区擦回 0xFF。
@@ -460,47 +474,104 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 
 	HTTP_SetVerbose(1);
 
-	/* --- 校验 --- */
+	/* --- 第一道校验：收到的数据算 MD5，和平台给的对 --- */
 	MD5_Final(&ctx, digest);
-	for(i = 0; i < MD5_DIGEST_SIZE; i ++)
-	{
-		static const char HEX[] = "0123456789abcdef";
-		got_md5[i*2 + 0] = HEX[digest[i] >> 4];
-		got_md5[i*2 + 1] = HEX[digest[i] & 0x0F];
-	}
-	got_md5[MD5_DIGEST_SIZE*2] = '\0';
+	Md5ToHex(digest, got_md5);
 
 	U1_printf("[OTA] 下载完成 %u 字节\r\n", (unsigned)off);
-	U1_printf("[OTA] MD5 本地 %s\r\n", got_md5);
-	U1_printf("[OTA] MD5 平台 %s\r\n", expect_md5);
+	U1_printf("[OTA] MD5 网络收到 %s\r\n", got_md5);
+	U1_printf("[OTA] MD5 平台给出 %s\r\n", expect_md5);
 
 	if(strcmp(got_md5, expect_md5) != 0)
 	{
-		U1_printf("[OTA] ✗ MD5 不一致 —— 放弃本次升级（不置标志，A 区保持原样）\r\n");
+		U1_printf("[OTA] ✗ 不一致 —— 传输过程出错，放弃（不置标志，A 区保持原样）\r\n");
 		return OTA_R_FAIL_MD5;
 	}
-	U1_printf("[OTA] ✓ MD5 一致\r\n");
+	U1_printf("[OTA] ✓ 传输校验通过\r\n");
+
+	/* --- 第二道校验：从 W25Q64 读回来重新算一遍 ---
+	 *
+	 * 这一道才是"到底存进去了没有"的答案。第一道**证明不了这件事**：
+	 * 它算的是 RAM 里那份 s_chunk 累积出来的数据，跟 W25Q64 通不通、
+	 * 写没写进去，一点关系都没有。
+	 *
+	 * 实测栽过：A 区漏调 W25Q64_Init()，SPI 引脚根本没配成复用功能，
+	 * PageProgram 全是空操作 —— 而第一道校验照样通过，一路走到"标志已写入"，
+	 * 复位后 BootLoader 发现 W25Q64 里是空的。现象是"升级了但什么都没发生"。
+	 *
+	 * 从外部 Flash 读回 30KB 走 SPI 只要几十毫秒，
+	 * 比起"升级完才发现没写进去"便宜太多。 */
+	U1_printf("[OTA] 回读校验：从 W25Q64 读回 %u 字节...\r\n", (unsigned)size);
+	MD5_Init(&ctx);
+	{
+		uint32_t ro = 0;
+		while(ro < size)
+		{
+			uint32_t rn = size - ro;
+			if(rn > OTA_CHUNK_SIZE) rn = OTA_CHUNK_SIZE;
+			W25Q64_ReadData(ro, s_chunk, rn);
+			MD5_Update(&ctx, s_chunk, rn);
+			ro += rn;
+		}
+	}
+	MD5_Final(&ctx, digest);
+	Md5ToHex(digest, got_md5);
+
+	U1_printf("[OTA] MD5 W25Q64回读 %s\r\n", got_md5);
+	if(strcmp(got_md5, expect_md5) != 0)
+	{
+		U1_printf("[OTA] ✗ 回读不一致 —— 数据没真正写进外部 Flash\r\n");
+		U1_printf("[OTA]   查 W25Q64_Init() 是否调用、PA4-PA7 接线、模块供电\r\n");
+		U1_printf("[OTA]   放弃本次升级（不置标志，A 区保持原样）\r\n");
+		return OTA_R_FAIL_VERIFY;
+	}
+	U1_printf("[OTA] ✓ 回读一致 —— 固件确实在 W25Q64 里\r\n");
 	return OTA_R_OK;
 }
 
-/* ④ 置标志并复位，交给 BootLoader 搬运 */
-static void StepApply(uint32_t size)
+/* ④ 置标志 -> 回读确认 -> 复位。返回 OTA_R_OK（走到就是复位了）或 OTA_R_FAIL_FLAG */
+static uint8_t StepApply(uint32_t size)
 {
 	/* 顺序很重要：先把长度和标志都写进结构体，再一次性写进 AT24C02。
-	 * 如果分开写两次，中间掉电可能留下"标志置了但长度是旧的"的状态 ——
+	 * 如果分成两次写，中间掉电可能留下"标志置了但长度是旧的"的状态 ——
 	 * BootLoader 会照着旧长度搬一段残缺的固件进 A 区。 */
 	OTA_Info.OTA_Flag = OTA_SET_FLAG;
 	OTA_Info.FileLen[OTA_W25Q64_BLOCK] = size;
 	AT24C02_WriteOTAInfo();
 
-	U1_printf("[OTA] 标志已写入 AT24C02：OTA_Flag=0x%08X  FileLen[%d]=%u\r\n",
-	          (unsigned)OTA_SET_FLAG, OTA_W25Q64_BLOCK, (unsigned)size);
+	/* ⚠️ 写完必须回读校验。
+	 *
+	 * AT24C02_WriteOTAInfo() 返回 void、不报任何错 —— I2C 没初始化、器件没接、
+	 * 写周期没等够，它都一样"成功"返回。不校验的话，我们会带着"写好了"的
+	 * 误解去复位，而 BootLoader 读到的是旧标志 → 判定无更新 → 跳回旧固件。
+	 * 现象是"升级了但什么都没发生"，并且全程不报错。
+	 *
+	 * 实测就是这么栽的：A 区漏了 MyIIC_Init()，标志根本没写进去，
+	 * 却打印了"标志已写入" —— 那句话当时只是"我调过这个函数了"，
+	 * 不是"写成功了"。差别很大。 */
+	AT24C02_ReadOTAInfo();
+	if(OTA_Info.OTA_Flag != OTA_SET_FLAG ||
+	   OTA_Info.FileLen[OTA_W25Q64_BLOCK] != size)
+	{
+		U1_printf("[OTA] ✗ 标志回读失败：写进 0x%08X/%u，读回 0x%08X/%u\r\n",
+		          (unsigned)OTA_SET_FLAG, (unsigned)size,
+		          (unsigned)OTA_Info.OTA_Flag,
+		          (unsigned)OTA_Info.FileLen[OTA_W25Q64_BLOCK]);
+		U1_printf("[OTA]   查 MyIIC_Init() 是否调用、PB10/PB11 接线、"
+		          "AT24C02 的 A0/A1/A2 跳线是否全跨在 GND 侧\r\n");
+		U1_printf("[OTA]   **不复位** —— 让 BootLoader 去搬一段标志都没置上的固件没有意义\r\n");
+		return OTA_R_FAIL_FLAG;
+	}
+
+	U1_printf("[OTA] ✓ 标志回读确认：OTA_Flag=0x%08X  FileLen[%d]=%u\r\n",
+	          (unsigned)OTA_Info.OTA_Flag, OTA_W25Q64_BLOCK, (unsigned)size);
 	U1_printf("[OTA] 即将复位，由 BootLoader 搬运到 A 区\r\n");
 
 	/* 给串口一点时间把上面几行发完再复位。不延时的话，
-	 * 最关键的"标志写好了"这行往往来不及发出去，看起来像是卡死在下载。 */
+	 * 最关键的"标志已确认"这行往往来不及发出去，看起来像是卡死在下载。 */
 	Delay_ms(300);
 	NVIC_SystemReset();
+	return OTA_R_APPLYING;		/* 到不了这里，留着让编译器安心 */
 }
 
 /* ==========================================================================
@@ -551,6 +622,8 @@ uint8_t OTA_Run(void)
 		U1_printf("[OTA] （下载完成状态上报失败，仍继续搬运）\r\n");
 	}
 
-	StepApply(size);            /* 里面会复位，不会返回 */
-	return OTA_R_APPLYING;
+	/* 置标志 -> 回读确认 -> 复位。回读不通过就**不复位**，直接返回错误码。 */
+	r = StepApply(size);
+	U1_printf("===== OTA 结束 rc=%u =====\r\n\r\n", (unsigned)r);
+	return r;
 }

@@ -47,8 +47,10 @@
 #define OTA_R_FAIL_CHECK    3   /* 检测升级任务失败（响应解析不出，或 code 异常） */
 #define OTA_R_FAIL_ERASE    4   /* W25Q64 擦除失败 */
 #define OTA_R_FAIL_DOWNLOAD 5   /* 下载失败：网络错、Ota-Errno 非 0、长度不足 */
-#define OTA_R_FAIL_MD5      6   /* 固件 MD5 与平台给的对不上 */
+#define OTA_R_FAIL_MD5      6   /* 固件 MD5 与平台给的对不上（网络传输出错） */
 #define OTA_R_FAIL_STATUS   7   /* 上报进度/状态失败 */
+#define OTA_R_FAIL_VERIFY   8   /* W25Q64 回读校验失败：数据没真正写进外部 Flash */
+#define OTA_R_FAIL_FLAG     9   /* AT24C02 标志回读校验失败：置标志没生效 */
 
 /* 跑一次完整的 OTA 检查。
  *
