@@ -1,14 +1,18 @@
+<div align="center">
+
 # STM32F103 双区 OTA BootLoader + OneNET 云平台远程升级
 
-基于 **STM32F103C8T6 + 标准外设库（SPL）** 的双区固件升级方案。
+![MCU](https://img.shields.io/badge/MCU-STM32F103C8T6-03234B?logo=stmicroelectronics&logoColor=white)
+![Flash](https://img.shields.io/badge/Flash-64KB-2563EB)
+![Language](https://img.shields.io/badge/Language-C-A8B9CC?logo=c&logoColor=white)
+![Protocol](https://img.shields.io/badge/Protocol-HTTP%20%7C%20Range-660066)
+![Cloud](https://img.shields.io/badge/Cloud-OneNET-FF6A00)
+![IDE](https://img.shields.io/badge/IDE-Keil%20MDK%205-lightgrey)
 
-设备运行时从 **中国移动 OneNET** 分片下载新固件写入外部 Flash，置标志后复位，
-由 BootLoader 完成擦写、校验与跳转 —— **升级全程不接线、不接调试器。**
+设备运行时从 **中国移动 OneNET** 分片下载新固件写入外部 Flash，置标志后复位，<br/>
+由 BootLoader 完成擦写、校验与跳转 —— **升级全程不接线、不接调试器**
 
-![MCU](https://img.shields.io/badge/MCU-STM32F103C8T6-blue.svg)
-![Flash](https://img.shields.io/badge/Flash-64KB-blue.svg)
-![Cloud](https://img.shields.io/badge/Cloud-OneNET-orange.svg)
-![IDE](https://img.shields.io/badge/IDE-Keil%20MDK%205-lightgrey.svg)
+</div>
 
 ---
 
@@ -26,21 +30,60 @@
 ## 系统架构
 
 ```mermaid
-flowchart TD
-    ONENET["中国移动 OneNET<br/>OTA 服务 · HTTP/80 + 签名鉴权"]
-    ESP["ESP8266 D1 Mini<br/>AT 固件 · USART2 PA2/PA3"]
-    APP["<b>A 区 App</b> 33544B / 38KB @0x08006800<br/>onenet_ota · onenet_http · token · md5<br/>（可被远程升级）"]
-    W25["W25Q64 8MB<br/>软件 SPI · PA4~PA7<br/>固件暂存 · 块 0"]
-    EE["AT24C02<br/>软件 I2C · PB10/11<br/>升级标志 · 掉电保持"]
-    BL["<b>B 区 BootLoader</b> 24484B / 26KB @0x08000000<br/>读标志 → 搬运 → 校验 → 跳转<br/>（永不升级）"]
+flowchart LR
+    subgraph CLOUD["☁️ 云端"]
+        ONENET["<b>中国移动 OneNET</b><br/>OTA 服务 · HTTP/80<br/>签名鉴权"]
+    end
+
+    subgraph LINK["联网"]
+        ESP["<b>ESP8266 D1 Mini</b><br/>AT 固件 · USART2<br/>PA2 / PA3"]
+    end
+
+    subgraph APP["〈A 区 App〉33544B / 38KB @0x08006800 —— 可被远程升级"]
+        direction TB
+        OTA["onenet_ota<br/>流程编排"]
+        HTTP["onenet_http<br/>HTTP / Range"]
+        TOK["onenet_token<br/>SHA1 + HMAC + b64"]
+        MD5["md5<br/>流式校验"]
+        OTA --> HTTP
+        OTA --> MD5
+        HTTP --> TOK
+    end
+
+    subgraph BOOT["〈B 区 BootLoader〉24484B / 26KB @0x08000000 —— 永不升级"]
+        BL["读标志 → 搬运 → 校验 → 跳转"]
+    end
+
+    subgraph HW["外部器件"]
+        W25["<b>W25Q64</b> 8MB<br/>软件 SPI · PA4~PA7<br/>固件暂存 · 块 0"]
+        EE["<b>AT24C02</b><br/>软件 I2C · PB10/11<br/>升级标志 · 掉电保持"]
+    end
 
     ONENET <-->|HTTP| ESP
-    ESP <-->|AT 指令 / +IPD| APP
-    APP -->|分片写入| W25
-    APP -->|置升级标志| EE
+    ESP <-->|"AT 指令 / +IPD"| HTTP
+    OTA -->|分片写入| W25
+    OTA -->|置标志后复位| EE
     EE -.->|复位后读取| BL
     W25 -->|搬运固件| BL
-    BL -->|LOAD_A 跳转| APP
+    BL -->|"LOAD_A 跳转"| OTA
+
+    classDef cloud fill:#fff7ed,color:#9a3412,stroke:#f97316,stroke-width:1.5px;
+    classDef link  fill:#faf5ff,color:#6b21a8,stroke:#a855f7,stroke-width:1.5px;
+    classDef app   fill:#eff6ff,color:#1e3a8a,stroke:#3b82f6,stroke-width:1.5px;
+    classDef boot  fill:#fef2f2,color:#991b1b,stroke:#ef4444,stroke-width:1.5px;
+    classDef hw    fill:#f0fdfa,color:#115e59,stroke:#14b8a6,stroke-width:1.5px;
+
+    class ONENET cloud;
+    class ESP link;
+    class OTA,HTTP,TOK,MD5 app;
+    class BL boot;
+    class W25,EE hw;
+
+    style CLOUD fill:#fffbf5,stroke:#fdba74,stroke-width:1px
+    style LINK  fill:#fdfaff,stroke:#d8b4fe,stroke-width:1px
+    style APP   fill:#f8fbff,stroke:#93c5fd,stroke-width:1px
+    style BOOT  fill:#fffafa,stroke:#fca5a5,stroke-width:1px
+    style HW    fill:#f5fdfb,stroke:#5eead4,stroke-width:1px
 ```
 
 ---
@@ -128,185 +171,49 @@ STM32F103C8T6 内部 Flash 共 64 KB（1 KB/页），划分为两个区：
 
 ---
 
-## 项目结构与来源说明
-
-本仓库按学习顺序保留了 6 个递进工程（外加一份原版存档），最终形态是 `6-串口IAP功能`：
-
-| 目录 | 内容 |
-|---|---|
-| `1-串口测试程序` | 串口收发基础（DMA + IDLE 中断 + 环形缓冲） |
-| `1.1-(A区)串口测试程序` | **A 区应用程序（名字是历史遗留，现在装的是完整的 OneNET OTA 客户端）**，已按 `0x08006800` 链接 |
-| `2-IO模拟IIC驱动24C02` | 软件 I2C + EEPROM 读写 |
-| `3-IO模拟SPI驱动W25Q64` | 软件 SPI + 外部 Flash |
-| `4-内部FLASH擦写` | 内部 Flash 按页擦写 |
-| `5-规划AB分区，第一阶段工程结束` | AB 分区规划 |
-| **`6-串口IAP功能`** | **BootLoader 完整实现** |
-| `OTA升级原版/` | **改动前**的原始版本存档（6 个文件），用于对照「教程给的」和「自己做的」|
-
----
-
-### 这部分是跟着教程实现的
-
-以下内容参考**江协科技 STM32 入门教程（升级篇）** 实现：
-
-- **AB 分区规划**与 `LOAD_A()` 跳转机制（含栈顶指针合法性校验、外设反初始化）
-- **Xmodem 协议**收发与 CRC16 校验
-- **内部 Flash 按页擦写**（`MyFLASH.c`）
-- 命令行交互框架、软件 I2C / 软件 SPI 的位操作时序
-
-### 这部分是项目过程中自己补的
-
-**1. 上电硬件自检**（`main.c` 的 `HW_SelfTest()`）
-
-原实现在外部器件没接好时是**静默失败**的：软件 I2C 收不到 ACK 只返回错误码，
-软件 SPI 读回全 `0xFF`，程序照样往下跑，直到写完才发现数据进了空气。
-现在上电先确认两颗存储器件：
-
-- W25Q64 读 JEDEC ID（`MID` 应为 `0xEF`，`DID` 应为 `0x4017`）
-- AT24C02 在 `0xF0` 地址做读写回环（`OTA_InfoCB` 只占 `0x00~0x4F`，不冲突），
-  先备份原值、测完还原
-
-**2. I2C 上电诊断工具**（`iic.c` 的 5 个诊断接口）
-
-自检失败时自动转入诊断，把笼统的"没应答"拆成可判定的几类。
-核心是**利用 I2C 的电气特性做反向探测**：
-
-| 接口 | 做法 | 能判定什么 |
-|---|---|---|
-| `MyIIC_ReadIdleLevel()` | 释放总线后读回电平 | 哪条线被拉死 |
-| `MyIIC_ProbeExternalPullup()` | 改成**内部下拉**输入再读 | 该线是否挂着外部上拉（= 器件是否真的接在这一脚） |
-| `MyIIC_ProbeForcedLow()` | 改成**内部上拉**输入再读 | 该线是悬空还是短到 GND |
-| `MyIIC_SwapPins()` + 扫描 | 运行期对调 SCL/SDA 角色后再扫 | **SCL/SDA 是否接反（不用动硬件）** |
-| `MyIIC_ScanAddr()` | 扫描全部 7 位地址 | 器件实际在哪个地址（A0/A1/A2 接错会让它"搬家"） |
-
-原理：模块板载上拉通常 4.7 kΩ，而 STM32 内部上下拉约 40 kΩ —— 两者较量时外部完胜，
-于是"把引脚临时改成内部上拉/下拉再读"就能反推线上挂了什么。
-
-**3. 软件开发过程中的调试记录**
-
-见 [`docs/AT24C02-调试记录.md`](docs/AT24C02-调试记录.md) —— 记录了这套诊断工具
-如何定位三个叠加的硬件故障（地址跳线帽方向错误 / SCL-SDA 走线异常 / 杜邦线接触不良），
-以及诊断工具自身踩到的三个坑。
-
----
-
-## 目录角色图与契约纪律
-
-> **这是本仓库最该先读的一节。** 仓库里同时装着"学习阶段"和"最终产品"两套东西，
-> 不看清角色，很容易改错地方 —— 或者更糟：以为某个目录是活的，其实它是空壳。
-
-### 谁在"活着"
+## 项目结构
 
 设备上真正运行的只有两个程序，它们接力完成一次升级：
 
 | | **B 区 BootLoader** | **A 区 App** |
 |---|---|---|
-| 目录 | `6-串口IAP功能` | `1.1-(A区)串口测试程序`（**名字是历史遗留，里面是完整的 OneNET OTA 客户端**） |
-| 位置 | `0x08000000`，26KB | `0x08006800`，38KB |
-| 镜像 / 余量 | 24484B / 28672B（余 2140） | 31144B / 38912B（余 7768） |
-| 职责 | 读标志 → W25Q64 搬运 → 校验 → 跳转；外加串口 Xmodem IAP（`[1]`/`[2]`，**变砖恢复通道**） | 业务 + **全部网络与云端逻辑**（签名 / HTTP / 分片下载 / 校验 / 置标志） |
-| 能否被远程升级 | ❌ **不能** —— 它是设备上唯一修不好的代码 | ✅ 能，而且以后所有新功能都加在这里 |
+| 目录 | `6-串口IAP功能` | `1.1-(A区)串口测试程序` |
+| 位置 / 容量 | `0x08000000` / 26KB | `0x08006800` / 38KB |
+| 镜像 / 余量 | 24484B / 28672B | 33544B / 38912B |
+| 职责 | 读标志 → 搬运 → 校验 → 跳转；串口 Xmodem IAP（**恢复通道**） | 业务 + **全部网络与云端逻辑** |
+| 能否远程升级 | ❌ **不能**（设备上唯一修不好的代码） | ✅ 能 |
 
 > **一句话规则：B 区冻结，A 区承担所有演进。**
-> 因为 A 区能被 OneNET 升级、B 区不能 —— 这正是当初把 Flash 切成两块的**全部理由**。
+> 因为 A 区能被 OneNET 升级、B 区不能 —— 这正是把 Flash 切成两块的**全部理由**。
 
-其余目录都不是产品的一部分：
+此外还有 `1`~`5` 各阶段工程（学习过程的中间态）、`OTA升级原版/`（教程原版存档；
+**里面的文件故意不带 BOM / 是 GBK，别用 `ensure_bom.py` 去"修"**），以及 `docs/` `scripts/` `_tools/`。
 
-| 目录 | 角色 | 动不动 |
-|---|---|---|
-| `1`~`5` 各阶段目录 | 学习过程中的中间态 | 不动，留作演进记录 |
-| `OTA升级原版/` | 教程原版存档 | 不动（**注意**：里面的文件故意不带 BOM / 是 GBK，别用 `ensure_bom.py` 去"修"它们） |
-| `examples/` `docs/` `scripts/` `_tools/` | 文档与工具 | 按需维护 |
+> ⚠️ **一条必须守住的纪律**：`ota_layout.h` 是 A/B 之间**唯一的契约**（两个工程没有函数调用，
+> 只有那份内存布局）。改它必须两个工程一起重编、一起烧 —— 只烧一边会**静默失效**，不报错。
+>
+> 完整说明（含「哪些跟教程、哪些自己补」与**四次分区调整的历史**）见 → [`docs/project-structure.md`](docs/project-structure.md)
 
-### 一条必须守住的纪律：`ota_layout.h` 是 A/B 之间的唯一契约
-
-两个工程之间**没有函数调用**，唯一的联系是 `6-串口IAP功能/Hardware/ota_layout.h`
-定义的那份**内存布局**：
-
-- AT24C02 里 `OTA_InfoCB` 那 80 字节怎么排（升级标志 / 各块固件长度 / 版本号）
-- W25Q64 用哪个块放 OTA 固件（块 0）
-
-**改这个文件 = 改双方的约定，必须 A、B 两个工程一起重编、一起烧。**
-
-只烧一边的后果是**不报错的静默失败**：BootLoader 把版本号当成固件长度来读，
-判定"无更新"，设备看起来一切正常，只是升级永远不生效 —— 而且没有任何报错。
-
-> 驱动源码（`4G.c` / `W25Q64.c` / `MySPI.c` / `iic.c` / `m24c02.c`）之所以也让
-> A 区工程**引用 B 区目录里的同一份文件**、而不是各存一份，是同一个理由：
-> 同一份源码不可能漂移，而复制出来的两份迟早对不上。
-
-### 分区调整历史
-
-| 次序 | B / A | 触发原因 |
-|---|---|---|
-| 初版 | 20 / 44 KB | 教程原始划分 |
-| 第一次 | 32 / 32 KB | BootLoader 加自检和 I2C 诊断后涨到 24124B，**溢出到 A 区、被命令 2 顺手擦掉自己** |
-| 第二次 | 36 / 28 KB | 内网 OTA 代码把 BootLoader 推到 29448B，余量掉到 3320B |
-| 第三次 | 28 / 36 KB | OneNET OTA 客户端要进 A 区；同期把内网 TCP OTA 从 B 区移除（省 7896B） |
-| **第四次（当前）** | **26 / 38 KB** | A 区涨到 31144B（84.5%），留给后续业务逻辑的余量不够 |
-
-**改分区只需动 4 处**，由 `_tools/repartition_to_B*.py` 一次性完成
-（逐处校验命中、支持 `--dry` 预演、失败会大声报出来）：
-`main.h` 的 `MyFlash_B_Page_Num`、两个工程的 `<OCR_RVCT4>`、A 区的 `VECT_TAB_OFFSET`。
-
-**BootLoader 里没有硬编码的 A 区地址** —— 它由 `MyFlash_B_Page_Num` 推导，
-所以擦除 / W25Q64→A 区搬运 / `LOAD_A()` 跳转全都自动跟随。
-改完记得跑 `scripts/test_macro_fix.py`（它硬编码了当前分区，**会失败，那是设计**）。
 
 ## 当前验证状态
 
-**这一节是简历和面试里"我说我做过"的唯一依据**，所以每条都写清验证到什么程度，没验的绝不写"已验证"。
+> 这一节是简历和面试里「我说我做过」的唯一依据 —— 每条都写清验证到什么程度，**没验的绝不写"已验证"**。
 
-### B 区 BootLoader（`6-串口IAP功能`）
-
-| 功能 | 状态 |
+| 层次 | 已验证到什么程度 |
 |---|---|
-| W25Q64 JEDEC ID 读取 | ✅ 已验证（`MID=0xEF DID=0x4017`） |
-| AT24C02 读写回环 | ✅ 已验证 |
-| 命令 `1`：擦除 A 区 | ✅ 已验证（**第四次调分区后复测过**） |
-| 命令 `2`：串口 Xmodem IAP 下载到 A 区 | ✅ 已验证（262 包 / 33544 字节 → 复位 → `LOAD_A(0x08006800)` 跳转 → `APP v1.0.0`） |
-| 命令 `3` / `4`：版本号写入与查询 | ✅ 已验证 |
-| 命令 `5`：Xmodem 下载到 W25Q64 | ✅ 已验证 |
-| 命令 `6`：W25Q64 搬运到 A 区并跳转 | ✅ 已验证（`长度33544字节` → `A区更新完毕`） |
-| 命令 `7`：复位 | ✅ 已验证 |
-| **EEPROM 掉电保持**（`OTA_Flag` 跨重启保留） | ✅ 已验证 —— **这是"升级能跨复位完成"的前提** |
+| **B 区 BootLoader** | W25Q64 JEDEC ID / AT24C02 回环 / 命令 `1`~`7` 全部 / **EEPROM 掉电保持**（这是"升级能跨复位完成"的前提）|
+| **设备侧签名** | SHA1 + HMAC + base64 自实现，开机自检 + 真机 `Token SelfTest: PASS` |
+| **OneNET 六个接口** | `POST /version`、`GET /check`（`code:0` / `12012` / `12013` 三种都实际遇到过）、`GET /{tid}/download` + `Range`（`HTTP 206` + `Ota-Errno=0`）、`POST /{tid}/status` |
+| **三道校验** | 传输 MD5（与平台逐字一致）· W25Q64 回读 33544B 重算 · AT24C02 标志回读（**写不进去就不复位**）|
+| **端到端升级** | `1.0.0 → 1.1.0`：33 片下载 → 三道校验 → 置标志 → 复位 → BootLoader 搬运 → **`APP v1.1.0`** |
+| **升级成功确认** | 新固件正常上报 `s_version=1.1.0` → 平台返回 `12012`，**任务自动闭环**（设备不需要记任何状态）|
+| **上电硬件自检** | W25Q64 读 ID + AT24C02 回环；失败会**跳过 OTA** 并打印排查方向 |
+| **OLED 显示** | 版本 / 自检结果 / OTA 实时进度 |
+| **构建与版本管理** | 同一份源码双 Target 编出 `v1.0.0` / `v1.1.0`，用 grep `.bin` 核对过内容确实不同 |
+| **PC 侧自动化测试** | 6 个脚本全绿（签名 / CRC / MD5 / 分区宏 / +IPD 解析 / 服务协议）—— **不需要硬件** |
 
-### A 区 App（`1.1-(A区)串口测试程序`，OneNET OTA 客户端）
+> 上位机终端需设成 UTF-8（见上文）；命令 `0`/`8`/`9`/`t`/`o`（内网 TCP OTA）已随 B 区精简移除。
 
-| 功能 | 状态 |
-|---|---|
-| 上电硬件自检（W25Q64 读 ID + AT24C02 回环） | ✅ 已验证（**失败会跳过 OTA** 并打印排查方向） |
-| 设备侧签名（SHA1 + HMAC + base64） | ✅ 已验证（开机自检 + 真机 `Token SelfTest: PASS`） |
-| `POST /version` 上报版本 | ✅ 已验证（`{"code":0,"msg":"succ"}`） |
-| `GET /check` 检测升级任务 | ✅ 已验证（`code:0` / `12012 not exist` / `12013 task succ` 三种都实际遇到过） |
-| `GET /{tid}/download` + `Range` 分片 | ✅ 已验证（`HTTP 206` + `Ota-Errno=0`，33 片全通） |
-| `POST /{tid}/status` 上报进度 / 状态 | ✅ 已验证 |
-| 传输 MD5 校验 | ✅ 已验证（与平台给出的值逐字一致） |
-| **W25Q64 回读校验** | ✅ 已验证（从外部 Flash 读回 33544 字节重算 MD5） |
-| **AT24C02 标志回读确认** | ✅ 已验证（写不进去就**不复位**，不冒险让 BootLoader 去搬） |
-| **端到端升级：1.0.0 → 1.1.0** | ✅ **已验证**（33 片下载 → 三道校验 → 置标志 → 复位 → BootLoader 搬运 → `APP v1.1.0`） |
-| **升级成功确认（不依赖设备做特殊记忆）** | ✅ 已验证（新固件正常上报 `s_version=1.1.0` → 平台返回 `12012`，任务自动闭环） |
-| OLED 显示（版本 / 自检结果 / OTA 进度） | ✅ 已验证 |
-| `OTA_Ver` 版本戳自动维护 | ✅ 已验证（只在值真的不同时才写 EEPROM） |
-
-### 构建与版本管理
-
-| 功能 | 状态 |
-|---|---|
-| 同一份源码编出两个版本（Keil 双 Target） | ✅ 已验证（`Objects_100` 内含 `A-OTA v1.0.0`、`Objects_110` 内含 `A-OTA v1.1.0`，用 grep `.bin` 核对过） |
-
-### PC 侧自动化测试（**不需要硬件**，改协议/改 CRC 后先跑它们）
-
-| 脚本 | 状态 |
-|---|---|
-| `test_ota_server.py` / `test_crc_equiv.py` / `test_macro_fix.py` | ✅ 全部通过 |
-| `test_payload_read.py` / `test_sign.py` / `test_md5.py` | ✅ 全部通过 |
-
-> 上位机终端需设成 UTF-8，见上文「串口输出是 UTF-8 中文」。
-> 命令 `0`/`8`/`9`/`t`/`o`（内网 TCP OTA）已随 B 区精简移除，见「第三次调整分区」。
-> 那些路径的实现全文在 git 提交 `b980c58` 里，需要时能取回。
-
----
 
 ## 编译与烧录
 
@@ -331,195 +238,87 @@ STM32F103C8T6 内部 Flash 共 64 KB（1 KB/页），划分为两个区：
 
 ---
 
-## 怎么跑一遍完整 OTA（OneNET 远程升级）
+## 怎么跑一遍完整 OTA
 
-> 从零到"设备自己把自己升级掉"的完整操作。
-> **升级过程不需要 ST-Link、不需要接串口线** —— 只要板子通电能上网就行。
-> 这是这个项目存在的全部意义。
+> **升级过程不需要 ST-Link、不需要接串口线** —— 只要板子通电能上网。
 
-### 前置条件
+**前置**：2.4GHz WiFi（⚠️ ESP8266 **不支持 5GHz**）、已建好的 OneNET 产品与设备、`onenet_cfg.h` 填好三元组。
 
-| 项 | 要求 |
-|---|---|
-| 硬件 | STM32F103C8T6 + W25Q64 + AT24C02 + ESP8266(D1 Mini)，接线见上文「硬件连接」|
-| 网络 | **2.4GHz WiFi** ⚠️ ESP8266 **不支持 5GHz**。用手机热点必须切到 2.4G，否则 AT 层只回一句 `ERROR`，看不出原因 |
-| 账号 | OneNET 控制台已建产品 `BOOT` 与设备 `upgrade` |
-| 本地配置 | `Hardware/onenet_cfg.h` 填好三元组（模板见 `onenet_cfg.h.example`），WiFi 凭据在 `wifi_cfg.h` |
-| 串口终端 | 9600、UTF-8、**不要勾"发送新行"**（命令按接收长度严格匹配）|
-
-### 第一步：编两个版本的固件
-
-**同一份源码，切 Keil 的 Target 编两次**：
+**① 编两个版本**（同一份源码切 Keil 的 Target）
 
 | Target | `APP_VERSION_ID` | 产物 | 用途 |
 |---|---|---|---|
-| `A-1.0.0` | `100` | `Objects_100/Project.bin` | **烧进设备**（扮演"待升级的旧设备"）|
+| `A-1.0.0` | `100` | `Objects_100/Project.bin` | **烧进设备**（扮演旧版本）|
 | `A-1.1.0` | `110` | `Objects_110/Project.bin` | **传到平台**（升级包）|
 
-⚠️ **编完必须核对产物内容**（这一步别省）：
-
-```bash
-python -c "import re;b=open('Objects_100/Project.bin','rb').read();print(sorted({bytes([c for c in b[i:i+12] if 32<=c<127][:11]).decode() for m in re.finditer(b'A-OTA v',b) for i in [m.start()]}))"
-# 应打印 ['A-OTA v1.0.0']；把路径换成 Objects_110 应为 ['A-OTA v1.1.0']
-```
-
-> **为什么必须核**：版本代号写错时**编译器不会报错**，只是制品里装着一个错的版本号。
+> ⚠️ 编完**必须核对产物内容**。版本代号写错时编译器**不会报错**，只是制品里装着一个错的版本号 ——
 > 后果是设备升级成功、但报给平台的版本号没变 → 平台认为没升上去 → **无限重刷**。
-> 详见下方「踩坑与缺陷记录」第 6 条。
 
-### 第二步：把 1.0.0 烧进设备
+**② 烧 1.0.0 进设备** → **③ 上传升级包**（升级模块选 **MCU软件**）→
+**④ 建「验证升级」任务**（⚠️ **上传包 ≠ 建任务**）→ **⑤ 复位设备，看它自己升级**
 
-ST-Link 烧 `Objects_100/Project.bin`（Keil 按工程的 IROM1 自动定位到 `0x08006800`）。上电应看到：
-
-```
-自检: W25Q64 MID=0xEF DID=0x4017
-自检: AT24C02=OK, OTA_Flag=0x00000000
-5000ms内，输入小写字母 w ,进入BootLoader命令行
-OTA无更新，跳转A区
-APP v1.0.0
-OTA_Ver 已刷新为 VER-1.0.0
-Token SelfTest: PASS
-48 0 30
-自检: W25Q64 OK (MID=0xEF DID=0x4017)
-自检: AT24C02 OK
-```
-
-OLED 四行：`A-OTA v1.0.0` / `EE:OK  W25:OK` / `OTA: checking` / 进度。
-
-### 第三步：上传升级包
-
-控制台 → **增值服务 → OTA升级 → 升级包管理 → ＋添加升级包**
-
-| 字段 | 值 |
-|---|---|
-| 升级包类型 | 完整包 |
-| 升级包名称 | `STM32-OTA-App` |
-| 所属产品 | **BOOT** |
-| **升级模块** | **MCU软件** ← ⚠️ 选成"模组固件"会让设备查任务时报 `12010 task type error` |
-| 目标版本 | **`1.1.0`** ← 必须和 `APP_VERSION_ID=110` 编出来的版本号**逐字一致** |
-| 上传文件 | `Objects_110/Project.bin` |
-
-### 第四步：创建升级任务
-
-点那个包右边的 **「验证升级」**：
-
-- **待升级版本**：选设备当前的版本
-- **待验证设备**：勾 `upgrade`
-- **通知方式**：不勾（设备是 HTTP 轮询，平台推送用不上）
-- 点 **「开始验证」**
-
-> ⚠️ **上传包 ≠ 建任务。** 上传只是把包放到平台上；必须再建任务，设备的 `/check` 才会返回它。
-> 另外建议把任务的「**设备升级超时时间**」调大到 30 分钟 —— 我们下载 33KB 要 45 秒。
-
-### 第五步：复位设备，看它自己升级
-
-复位板子，串口打出完整链路（约 45 秒）：
+复位后约 45 秒，串口应打出：
 
 ```
-===== OneNET OTA =====
-[OTA] 版本已上报：s_version=1.0.0
 [OTA] 有任务：tid=xxxxxxx  target=1.1.0  size=33544  md5=...
-[OTA] 擦除 W25Q64 块 0 ...
-[OTA] 片 1/33  Range 0-1023                    ← OLED 第 4 行同步刷新
-[HTTP] 206 -> 206，Ota-Errno=0，Content-Length=1024
+[OTA] 片 1/33  Range 0-1023              ← OLED 第 4 行同步刷新
 ...
-[OTA] 片 33/33  Range 32768-33543
-[OTA] 下载完成 33544 字节
-[OTA] MD5 网络收到 9b5357b2...                 ← 第一道：传输校验
-[OTA] MD5 平台给出 9b5357b2...
-[OTA] ✓ 传输校验通过
-[OTA] 回读校验：从 W25Q64 读回 33544 字节...    ← 第二道：存储校验
-[OTA] ✓ 回读一致 —— 固件确实在 W25Q64 里
-[OTA] ✓ 标志回读确认：OTA_Flag=0x0A050301  FileLen[0]=33544   ← 第三道
-[OTA] 即将复位，由 BootLoader 搬运到 A 区
-        ↓ 复位
-OTA_Flag = a050301
-OTA更新 → 长度33544字节 → A区更新完毕
-        ↓
-APP v1.1.0                                     ← ★ 升级成功
-[OTA] 无待升级任务（平台返回 code=12012）        ← ★ 平台自动闭环
+[OTA] ✓ 传输校验通过      ← 第一道：传输 MD5
+[OTA] ✓ 回读一致          ← 第二道：从 W25Q64 读回重算
+[OTA] ✓ 标志回读确认       ← 第三道：AT24C02
+        ↓ 复位 → BootLoader 搬运 → 跳转
+APP v1.1.0                               ← ★ 升级成功
+[OTA] 无待升级任务（code=12012）          ← ★ 平台自动闭环
 ```
 
-### 常见问题
+> 每一步的详细操作、预期输出、**8 条常见问题速查**见 → [`docs/how-to-run.md`](docs/how-to-run.md)
 
-| 现象 | 原因 |
-|---|---|
-| `[OTA] 连 WiFi 失败` | SSID/密码错；或**热点是 5GHz** |
-| `code=12010 task type error` | 升级包的「升级模块」选成了"模组固件"，应为 **MCU软件** |
-| `code=12012 not exist` | 平台侧没有任务 —— **上传包之后忘了建「验证升级」任务** |
-| `Ota-Errno=5` | 任务已过期/已完成；或下载慢触发了任务的「设备升级超时时间」 |
-| `✗ 回读不一致` | 数据没真写进 W25Q64 —— 查 `W25Q64_Init()` 是否调用、PA4~PA7 接线 |
-| `✗ 标志回读失败` | AT24C02 写不进去 —— 查 `MyIIC_Init()` 是否调用、PB10/PB11 接线 |
-| **升级成功但版本没变、反复升级** | 升级包里编进去的版本号不对 → 回去核第一步那段 |
-| `自检: W25Q64 无应答` | 接线/供电；**也可能是 `W25Q64_Init()` 没被调用** |
-
----
 
 ## 固件下载工具（仓库自带）
 
-除了用图形化串口工具，仓库里还带一个自实现的 Xmodem-CRC 下载脚本 ——
-它把「发 w 进菜单 → 发 2 → 等 C 握手 → 逐包发送 → EOT」整套动作编排好了，
-不用手动掐时机。
+除了图形化串口工具，仓库里带一个自实现的 **Xmodem-CRC 下载脚本** —— 它把
+「发 `w` 进菜单 → 发 `2` → 等 `C` 握手 → 逐包发送 → EOT」整套动作编排好了，不用手动掐时机。
 
-```
-scripts/
-  xmodem_send.py    Xmodem-CRC 发送工具（自实现，含 CRC16 与 NAK 自动重传）
-  flash.bat         双击即用：默认 COM8 + 默认 A 区固件
+```bash
+python scripts/xmodem_send.py --port COM20                          # 默认用 Objects_100 的固件
+python scripts/xmodem_send.py --port COM20 --file "别的固件.bin"
 ```
 
-**双击运行**：`scripts\flash.bat`（会自动找默认固件，并提示你按板子复位键）
+`scriptslash.bat` 双击即用（默认 COM20 + 默认 A 区固件）。
 
-**命令行**（`--file` 可省略，默认用 A 区工程编出来的 `Project.bin`）：
+> ⚠️ **`flash.bat` 是纯 ASCII 的，不是漏写中文** —— cmd.exe 按当前代码页逐行解析 `.bat`，
+> 出现多字节字符会让它**中途中止**（窗口一闪就关，连 `pause` 都执行不到）。
+> 所以中文提示全部由 Python 输出，批处理只做转发。
 
-```
-python scripts/xmodem_send.py --port COM8
-python scripts/xmodem_send.py --port COM8 --file "别的固件.bin"
-```
+**已实测**：完整升级一次 —— 102 包全 ACK、零重传、826 B/s，复位后 A 区正常运行。
+CRC-16/XMODEM（初值 `0x0000`、多项式 `0x1021`）与 `boot.c` 的 `Xmodem_CRC16()` 逐位等价，
+并用 `binascii.crc_hqx` 交叉验证过。
 
-> ⚠️ **`flash.bat` 是纯 ASCII 的，不是漏写中文** —— cmd.exe 按当前代码页逐行解析
-> `.bat` 文件，内容里出现多字节字符（中文）会让它**中途中止**，表现为窗口一闪就关、
-> 连 `pause` 都执行不到。所以中文提示全部由 Python 脚本输出，批处理本身只做转发；
-> 默认固件路径也放在 Python 里解析（Python 处理中文路径没有问题）。
-
-**已实测**：用 `flash.bat` 完成过一次完整升级 —— 自动进入 Xmodem 模式、
-102 包全部 ACK、零重传、826 字节/秒，复位后 A 区程序正常运行。
-
-实现要点：CRC-16/XMODEM（初值 0x0000、多项式 0x1021），与 `boot.c` 的
-`Xmodem_CRC16()` 逐位等价，并用 `binascii.crc_hqx` 交叉验证过。
-超时若一直收不到 ACK，脚本会打印**超时期间收到的其它字节** ——
-用来区分「包没被接收方接受」和「完全没回应」，这两者指向完全不同的方向。
-
----
 
 ## 自动化测试（不需要硬件）
 
-`scripts/` 下有两个可独立运行的测试。改协议或改 CRC 之后先跑它们，比烧板子快得多，
-也能把「协议错了」和「硬件/链路问题」分开。
+`scripts/` 下有 **6 个可独立运行的测试**。改协议或改 CRC 之后先跑它们 —— 比烧板子快得多，
+也能把「协议错了」和「硬件 / 链路问题」分开。
 
 | 脚本 | 验什么 |
 |---|---|
-| `scripts/test_ota_server.py` | **OTA 服务器协议**：起一个本地服务器 + 模拟设备，核对协议头格式、长度、CRC，以及固件是否逐字节一致；同时确认 `PING` 路径仍是裸发（4b-2a 回归） |
-| `scripts/test_crc_equiv.py` | **CRC 零回归**：把 `boot.c` 里**真实的** `Xmodem_CRC16` / `Xmodem_CRC16_Update` 抽出来用 gcc 编译，在真实固件上按「整段 / 每 256 字节续算 / 逐字节续算」三种方式运行，与 `scripts/crc16.py` 对账 |
-| `scripts/test_macro_fix.py` | **分区宏展开**：从 `main.h` 抽出宏原文用 gcc 编译运行，核对 A 区容量 / 页数 / 起址算出来的值。这类 bug 编译和链接**都不会报错**，只有数值默默变错 —— 见下方「宏没括号」一节 |
-| `scripts/test_sign.py` | **OneNET 签名**：把 A 区工程里真实的 `sha1.c` / `base64.c` / `onenet_token.c` 抽出来用 gcc 编译，跑 SHA1 与 HMAC 的已知向量，再和 Python 重算的完整 Authorization 串**逐字节**对账。签名算错时服务端只回一句笼统的 `auth failed`，不先在 PC 上分开测，上板只能靠猜 |
-| `scripts/test_md5.py` | **MD5 分片续算**：跑 RFC 1321 标准向量，再对**真实固件**用 1024 / 256 / 7 三种分片大小做边收边算，三者必须与 `hashlib` 一致。只用一个分片大小测不出「跨分片续算」的边界 bug，所以刻意加了个不对齐的 7 字节 |
-| `scripts/test_payload_read.py` | **+IPD 状态机**：把 `4G.c` 的真实解析代码抽出来，喂合成的 +IPD 流，覆盖「载荷里含 `+IPD,999:` 字样」「信封被切成两半」「信封大于读批量」等边界，并量化两种读法的缓冲搬移代价 |
+| `test_sign.py` | **OneNET 签名**：抽出真实的 `sha1.c` / `base64.c` / `onenet_token.c` 用 gcc 编译，跑已知向量，再与 Python 重算的 Authorization 串**逐字节**对账 |
+| `test_md5.py` | **MD5 分片续算**：RFC 1321 向量 + 对真实固件用 **1024 / 256 / 7** 三种分片边收边算，三者必须与 `hashlib` 一致 |
+| `test_macro_fix.py` | **分区宏展开**：从 `main.h` 抽宏原文编译运行，核对容量 / 页数 / 起址。这类 bug **编译链接都不报错**，只有数值默默变错 |
+| `test_crc_equiv.py` | **CRC 零回归**：真实 `Xmodem_CRC16` 按「整段 / 每 256 字节续算 / 逐字节续算」三种方式跑，结果必须一致 |
+| `test_payload_read.py` | **`+IPD` 状态机**：覆盖「载荷里含 `+IPD,999:` 字样」「信封被切成两半」「信封大于读批量」等边界 |
+| `test_ota_server.py` | **内网 OTA 服务协议**：协议头格式 / 长度 / CRC / 固件逐字节一致，以及 `PING` 裸发回归 |
 
 ```bash
-python scripts/test_ota_server.py     # 用例1 OTA_REQ 带头 / 用例2 PING 裸发 / 用例3 注错必被检出
-python scripts/test_crc_equiv.py      # 三种调用方式都应得到同一个 CRC
-python scripts/test_macro_fix.py      # A 区容量应算出 38912、起址 0x08006800
-python scripts/test_payload_read.py   # +IPD 解析正确性 + 批量读的搬移代价
-python scripts/test_sign.py           # OneNET 签名：SHA1/HMAC/base64 三方对账
-python scripts/test_md5.py            # MD5 自检 + 真实固件多分片累加对账
+for t in sign md5 macro_fix crc_equiv payload_read ota_server; do python scripts/test_$t.py; done
 ```
 
-两个测试开头都会跑 CRC-16/XMODEM 的**已知向量自检**（`"123456789" → 0x31C3`）。
-上位机与 MCU 两边的 CRC 实现必须一致，靠肉眼比对代码是看不出来的 —— 只能靠向量、
-以及在同一份真实固件上跑出同一个数。`test_crc_equiv.py` 需要 gcc（本机 `D:\MinGW\bin\gcc.exe`）。
+> 多个测试开头会跑**已知向量自检**（如 CRC-16/XMODEM：`"123456789" → 0x31C3`）——
+> 上位机与 MCU 两边的算法实现必须一致，靠肉眼比对代码看不出来，只能靠向量。
+> `test_crc_equiv.py` 需要 gcc。
 
----
-## 踩坑与缺陷记录
+
+## 踩坑与缺陷记录
 
 > 这个项目里**真正花了时间的不是写功能，而是排查那些"不报错但不对"的问题**。
 > 完整记录（现象 / 定位过程 / 根因 / 教训）在 → **[docs/工程问题与踩坑记录.md](docs/工程问题与踩坑记录.md)**
