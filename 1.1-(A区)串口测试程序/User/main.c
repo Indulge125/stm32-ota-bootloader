@@ -8,6 +8,7 @@
 #include "onenet_token.h"
 #include "ota_layout.h"
 #include "onenet_ota.h"
+#include <string.h>		/* memset / memcpy / strcmp：给下面的版本戳用 */
 
 /* 应用版本号 APP_VERSION 定义在 onenet_ota.h ——
  * 那里是唯一能同时被 main.c 和 onenet_ota.c 看见、又语义合适的地方。
@@ -101,6 +102,32 @@ int main(void)
 	W25Q64_Init();				//软件 SPI：W25Q64 挂在 PA4~PA7
 
 	U1_printf("APP v%s\r\n", APP_VERSION);		//开机版本标识：串口一眼看出升级是否生效
+
+	/* ---- 把当前固件版本刷进 OTA_Ver ----
+	 *
+	 * OTA_Ver 是 AT24C02 里那个"版本号字符串，给调试用"的字段。
+	 * 之前它只能靠 B 区菜单的命令 3 手动设置 —— 而那条路很难走通：
+	 *   BootLoader 要求**正好 26 字节**且格式匹配 sscanf("VER-%d.%d.%d-...")，
+	 *   多一个（串口工具补的回车）或少一个都会被静默忽略，手敲几乎不可能不出错。
+	 *   而且它走的还是"读出来原样写回"那条路：一旦某次读取失败，
+	 *   整个结构体会被写成 0，版本号就永久变成垃圾，只能再进菜单重设。
+	 *
+	 * A 区自己就知道当前版本，开机刷一次，这个字段就永远有意义了 ——
+	 * 串口查版本号看到的就是"设备实际在跑哪个版本"，这正是它该有的含义。
+	 *
+	 * 只在值真的不同时才写：AT24C02 有擦写寿命，没必要每次开机都动它。
+	 * （升级时 StepApply() 会把它覆盖成"目标版本"，新固件起来后再刷成新版本，
+	 *   两个时机配合起来，"查版本号"永远能看到有意义的值。） */
+	{
+		static const char stamp[] = "VER-" APP_VERSION;
+		if(strcmp((const char *)OTA_Info.OTA_Ver, stamp) != 0)
+		{
+			memset(OTA_Info.OTA_Ver, 0, sizeof(OTA_Info.OTA_Ver));
+			memcpy(OTA_Info.OTA_Ver, stamp, sizeof(stamp) - 1);
+			AT24C02_WriteOTAInfo();
+			U1_printf("OTA_Ver 已刷新为 %s\r\n", stamp);
+		}
+	}
 
 	/* 签名自检：Token 算错时服务器只会笼统回一句 "auth failed"，
 	 * 先在这里跑一遍，把"算法写错"和"网络/配置问题"分开。
