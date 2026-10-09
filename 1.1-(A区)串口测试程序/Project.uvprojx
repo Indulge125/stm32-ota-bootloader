@@ -334,7 +334,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>USE_STDPERIPH_DRIVER,APP_VERSION="1.0.0"</Define>
+              <Define>USE_STDPERIPH_DRIVER,APP_VERSION_ID=100</Define>
               <Undefine></Undefine>
               <IncludePath>.\Start;.\User;.\Library;.\System;.\Hardware;..\6-串口IAP功能\Hardware</IncludePath>
             </VariousControls>
@@ -1167,7 +1167,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>USE_STDPERIPH_DRIVER,APP_VERSION="1.1.0"</Define>
+              <Define>USE_STDPERIPH_DRIVER,APP_VERSION_ID=110</Define>
               <Undefine></Undefine>
               <IncludePath>.\Start;.\User;.\Library;.\System;.\Hardware;..\6-串口IAP功能\Hardware</IncludePath>
             </VariousControls>

@@ -38,7 +38,32 @@ from crc16 import crc16_xmodem, self_test
 # 仓库根目录（本脚本在 scripts/ 下）—— 用来解析默认固件路径。
 # 默认路径里含中文，所以放在 Python 里解析，不写进 .bat（cmd 解析含中文的批处理会出错）。
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_FW = os.path.join("1.1-(A区)串口测试程序", "Objects", "Project.bin")
+
+A_REGION = os.path.join("1.1-(A区)串口测试程序")
+
+# ⚠️ A 区工程现在有**多个输出目录**（一个 Keil Target 一个）：
+#      Objects_100 = 版本 1.0.0（**烧进设备**，当"待升级的旧版本"）
+#      Objects_110 = 版本 1.1.0（传到 OneNET，当"升级包"）
+#      Objects     = 早期单 Target 时代的目录，只剩历史产物
+#
+# 默认取 Objects_100 —— 串口 IAP 的用途就是"把设备刷回可被升级的版本"。
+# 要烧别的版本请显式 --file，别依赖这个默认值。
+#
+# 这里原本只写死 Objects/Project.bin；加了多 Target 之后它指向的是
+# **过时的构建**，双击 flash.bat 会烧错固件 —— 典型的"改了配置没同步所有引用"。
+DEFAULT_FW_CANDIDATES = [
+    os.path.join(A_REGION, "Objects_100", "Project.bin"),
+    os.path.join(A_REGION, "Objects",     "Project.bin"),
+]
+
+
+def default_fw():
+    """挑第一个存在的候选；都不在就返回第一个（让上层报错时能列出路径）"""
+    for c in DEFAULT_FW_CANDIDATES:
+        p = os.path.join(REPO_ROOT, c)
+        if os.path.exists(p) and os.path.getsize(p) > 0:
+            return p
+    return os.path.join(REPO_ROOT, DEFAULT_FW_CANDIDATES[0])
 
 SOH, EOT, ACK, NAK, CAN, SUB = 0x01, 0x04, 0x06, 0x15, 0x18, 0x1A
 CRC_REQ = 0x43  # 'C'，接收方请求 CRC 模式
@@ -184,10 +209,13 @@ def main():
     def log(msg):
         print(msg, flush=True)
 
-    fw = args.file if args.file else os.path.join(REPO_ROOT, DEFAULT_FW)
+    fw = args.file if args.file else default_fw()
     if not os.path.exists(fw):
-        sys.exit("找不到固件文件：%s" + chr(10) +
-                 "（先在 Keil 里编译 1.1-(A区)串口测试程序，或用 --file 指定）" % fw)
+        sys.exit(("找不到固件文件：%s" % fw) + chr(10) +
+                 "默认会按顺序找这几处：" + chr(10) +
+                 chr(10).join("    " + c for c in DEFAULT_FW_CANDIDATES) + chr(10) +
+                 "先在 Keil 里编译对应 Target（A-1.0.0 或 A-1.1.0），"
+                 "或用 --file 显式指定。")
     if os.path.getsize(fw) == 0:
         sys.exit("文件是空的：%s" % fw)
     log("固件 : %s (%d 字节)" % (fw, os.path.getsize(fw)))
