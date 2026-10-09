@@ -33,6 +33,17 @@
 static char    s_json[OTA_JSON_BUF];        /* /version、/check 的响应 */
 static uint8_t s_chunk[OTA_CHUNK_SIZE];     /* 单片固件 */
 
+/* 可选的显示回调，见 onenet_ota.h。都是 0 就只走串口 */
+static OTA_StatusCb s_status_cb = 0;
+
+void OTA_SetStatusCb(OTA_StatusCb cb)
+{
+	s_status_cb = cb;
+}
+
+/* 上报状态的小包装：没注册回调就什么都不做 */
+#define OTA_STATUS(line, text)	do { if(s_status_cb) s_status_cb((line), (text)); } while(0)
+
 /* ==========================================================================
  * 小工具
  * ========================================================================== */
@@ -383,6 +394,16 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 		          (unsigned)((size + OTA_CHUNK_SIZE - 1) / OTA_CHUNK_SIZE),
 		          range);
 
+		/* OLED 上只放"第几片/共几片 OTA"，一行够放，也不闪 */
+		{
+			char prog[24];
+			U32ToStr(off / OTA_CHUNK_SIZE + 1, prog);
+			strcat(prog, "/");
+			U32ToStr((size + OTA_CHUNK_SIZE - 1) / OTA_CHUNK_SIZE, prog + strlen(prog));
+			strcat(prog, " OTA");
+			OTA_STATUS(4, prog);
+		}
+
 		rc = HTTP_Start("GET", path, 0, 0, range, &resp);
 		if(rc != HTTP_OK)
 		{
@@ -473,6 +494,8 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 	}
 
 	HTTP_SetVerbose(1);
+
+	OTA_STATUS(3, "OTA: verify");
 
 	/* --- 第一道校验：收到的数据算 MD5，和平台给的对 --- */
 	MD5_Final(&ctx, digest);
@@ -587,6 +610,8 @@ static uint8_t StepApply(uint32_t size, const char *target)
 
 	U1_printf("[OTA] ✓ 标志回读确认：OTA_Flag=0x%08X  FileLen[%d]=%u\r\n",
 	          (unsigned)OTA_Info.OTA_Flag, OTA_W25Q64_BLOCK, (unsigned)size);
+	OTA_STATUS(3, "OTA: OK");
+	OTA_STATUS(4, "resetting...");
 	U1_printf("[OTA] 即将复位，由 BootLoader 搬运到 A 区\r\n");
 
 	/* 给串口一点时间把上面几行发完再复位。不延时的话，
@@ -608,6 +633,7 @@ uint8_t OTA_Run(void)
 	uint8_t  r;
 
 	U1_printf("\r\n===== OneNET OTA =====\r\n");
+	OTA_STATUS(3, "OTA: checking");
 
 	/* 第 ① 步不是可有可无的：它同时向平台"声明设备当前版本"。
 	 * 升级成功之后新固件第一次跑，就是靠这一步让平台把任务标记为完成。 */
@@ -617,9 +643,11 @@ uint8_t OTA_Run(void)
 	r = StepCheckTask(&tid, &size, md5, sizeof(md5), target, sizeof(target), &has_task);
 	if(r != OTA_R_OK || !has_task)
 	{
+		OTA_STATUS(3, "OTA: no task");
 		U1_printf("===== OTA 结束 rc=%u =====\r\n\r\n", (unsigned)r);
 		return r;
 	}
+	OTA_STATUS(3, "OTA: have task");
 
 	/* 防御：避免平台给了个离谱的 size 让我们写爆 W25Q64 的块 0。
 	 * 一块 64KB，固件远小于它；但"远小于"是假设，不是保证。 */

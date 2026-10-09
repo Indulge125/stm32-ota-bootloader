@@ -21,6 +21,31 @@
 OTA_InfoCB OTA_Info;
 
 /* ==========================================================================
+ * OLED 显示
+ * ==========================================================================
+ * 布局（128x64，8x16 字库，每行 16 个 ASCII 字符）：
+ *
+ *     行1   A-OTA v1.0.0      固件标识 + 版本
+ *     行2   EE:OK  W25:OK     上电自检结果
+ *     行3   OTA: idle         OTA 阶段（由 onenet_ota.c 通过回调刷新）
+ *     行4   （进度）           下载时显示"第几片/共几片"
+ *
+ * 为什么先写"行1 + 版本"再去做自检：
+ *   自检要读两颗外部器件，万一卡住（器件没接好时 I2C/SPI 可能长时间等待），
+ *   屏幕上先有字就能证明"至少 A 区跑起来了、版本是哪个"——
+ *   否则黑屏时连"是没启动还是卡在自检"都分不清。
+ */
+static void OledStatus(uint8_t line, const char *text)
+{
+	if(line < 1 || line > 4) return;
+
+	/* 先清整行再写。不这么做的话，短字符串覆盖不掉上一次长字符串的尾巴 ——
+	 * 比如 "12/30 OTA" 换成 "OTA: OK" 之后会显示成 "OTA: OK30 OTA"。 */
+	OLED_ShowString(line, 1, "                ");	/* 16 个空格 = 整行 */
+	OLED_ShowString(line, 1, (char *)text);
+}
+
+/* ==========================================================================
  * 上电硬件自检
  * ==========================================================================
  *
@@ -51,11 +76,13 @@ static uint8_t HW_SelfTest(void)
 	W25Q64_ReadID(&MID, &DID);
 	if(MID == 0xEF && DID == 0x4017)
 	{
+		OLED_ShowString(2, 8, "W25:OK  ");
 		U1_printf("自检: W25Q64 OK (MID=0x%02X DID=0x%04X)\r\n", MID, DID);
 	}
 	else
 	{
 		bad = 1;
+		OLED_ShowString(2, 8, "W25:FAIL");
 		U1_printf("自检: W25Q64 无应答 (MID=0x%02X DID=0x%04X，应为 0xEF/0x4017)\r\n",
 		          MID, DID);
 		U1_printf("      查 PA4=CS/PA5=CLK/PA6=DO/PA7=DI 接线、模块供电，"
@@ -76,11 +103,13 @@ static uint8_t HW_SelfTest(void)
 
 	if(ee_ok)
 	{
+		OLED_ShowString(2, 1, "EE:OK   ");
 		U1_printf("自检: AT24C02 OK\r\n");
 	}
 	else
 	{
 		bad = 1;
+		OLED_ShowString(2, 1, "EE:FAIL ");
 		U1_printf("自检: AT24C02 回环失败 —— 查 PB10/PB11 接线、模块 VCC/GND，"
 		          "以及 A0/A1/A2 跳线是否全跨在 GND 侧\r\n");
 	}
@@ -96,6 +125,13 @@ static uint8_t HW_SelfTest(void)
 int main(void)
 {
 	OLED_Init();
+
+	/* 先把"我是谁、什么版本"打上屏 —— 在做任何可能卡住的事之前。
+	 * 黑屏时分不清"没启动"和"卡在自检"，这两行就是分界线。 */
+	OLED_ShowString(1, 1, "A-OTA v" APP_VERSION);
+	OLED_ShowString(3, 1, "OTA: boot       ");
+	OLED_ShowString(4, 1, "                ");
+
 	MyIIC_Init();				//软件 I2C：AT24C02 挂在 PB10/PB11
 	USART1_Init(9600);			//调试串口
 	AT24C02_ReadOTAInfo();		//把 EEPROM 里的 OTA 信息读进 OTA_Info
@@ -155,9 +191,13 @@ int main(void)
 	if(HW_SelfTest() != 0)
 	{
 		U1_printf("硬件自检未通过 —— 本次跳过 OTA\r\n");
+		OledStatus(3, "OTA: skip(hw)");
 	}
 	else
 	{
+		/* 把 OLED 显示注册给 OTA 模块 —— 它会在查任务/下载/校验各阶段
+		 * 回调过来刷新第 3、4 行，抬头就能看到进度，不用盯串口。 */
+		OTA_SetStatusCb(OledStatus);
 		OTA_Run();
 	}
 
