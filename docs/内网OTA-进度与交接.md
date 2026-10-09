@@ -34,8 +34,8 @@
 | 硬件 | STM32F103C8T6 + OLED(PB8/9) + AT24C02(PB10/11) + W25Q64(PA4-7) + ESP8266 D1 Mini(USART2: PA2/PA3) |
 | 调试串口 | USART1 PA9/PA10，**9600**（Tera Term，UTF-8） |
 | ESP8266 | USART2 PA2/PA3，**115200** |
-| 分区 | B 区(BootLoader) 28KB @0x08000000；A 区(App) 36KB @0x08007000 |
-| BootLoader 镜像 | **24484 / 28672，余量 4188**（Keil 产物，2026-10-08 精简后） |
+| 分区 | B 区(BootLoader) 26KB @0x08000000；A 区(App) 38KB @0x08006800 |
+| BootLoader 镜像 | **24484 / 26624，余量 2140**（Keil 产物；2026-10-09 第四次调分区后） |
 
 ---
 

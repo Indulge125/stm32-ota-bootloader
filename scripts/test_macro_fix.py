@@ -33,25 +33,25 @@ int main(void)
 	uint32_t limit = (uint32_t)MyFlash_A_Page_Num * MyFlash_Page_Size;
 	int bad = 0;
 
-	printf("limit = %u  (0x%08X)   应为 36864 (0x9000)\n", limit, limit);
-	if(limit != 36864u) { printf("  ★ 错\n"); bad = 1; }
+	printf("limit = %u  (0x%08X)   应为 38912 (0x9800)\n", limit, limit);
+	if(limit != 38912u) { printf("  ★ 错\n"); bad = 1; }
 
-	printf("A 区页数   = %u            应为 36\n", (unsigned)MyFlash_A_Page_Num);
-	if(MyFlash_A_Page_Num != 36) { printf("  ★ 错\n"); bad = 1; }
+	printf("A 区页数   = %u            应为 38\n", (unsigned)MyFlash_A_Page_Num);
+	if(MyFlash_A_Page_Num != 38) { printf("  ★ 错\n"); bad = 1; }
 
-	printf("A 区起址   = 0x%08X   应为 0x08007000\n", (unsigned)MyFlash_A_Start_Address);
-	if(MyFlash_A_Start_Address != 0x08007000u) { printf("  ★ 错\n"); bad = 1; }
+	printf("A 区起址   = 0x%08X   应为 0x08006800\n", (unsigned)MyFlash_A_Start_Address);
+	if(MyFlash_A_Start_Address != 0x08006800u) { printf("  ★ 错\n"); bad = 1; }
 
-	printf("A 区起始页 = %u            应为 28\n", (unsigned)MyFlash_A_Start_Page);
-	if(MyFlash_A_Start_Page != 28) { printf("  ★ 错\n"); bad = 1; }
+	printf("A 区起始页 = %u            应为 26\n", (unsigned)MyFlash_A_Start_Page);
+	if(MyFlash_A_Start_Page != 26) { printf("  ★ 错\n"); bad = 1; }
 
 	printf("\n用 limit 判定长度：\n");
-	printf("  40000 字节 -> %s\n", (40000u > limit) ? "拦下 ✓" : "★ 没拦（就是之前那个 bug）");
-	if(!(40000u > limit)) bad = 1;
+	printf("  45000 字节 -> %s\n", (45000u > limit) ? "拦下 ✓" : "★ 没拦（就是之前那个 bug）");
+	if(!(45000u > limit)) bad = 1;
 	printf("  13000 字节 -> %s\n", (13000u > limit) ? "★ 误拦" : "放行 ✓");
 	if(13000u > limit) bad = 1;
-	printf("  36864 字节 -> %s\n", (36864u > limit) ? "★ 误拦" : "放行 ✓");
-	if(36864u > limit) bad = 1;
+	printf("  38912 字节 -> %s\n", (38912u > limit) ? "★ 误拦" : "放行 ✓");
+	if(38912u > limit) bad = 1;
 
 	printf("\n%s\n", bad ? "★★ 有错" : "★ 宏展开全部正确");
 	return bad;
