@@ -13,32 +13,52 @@
  * "1.1.0" 和 "v1.1.0" 是两个不同的版本。写歪的表现是"平台永远不下发任务"：
  * 不报错，只是静默地什么都不发生，最难查。
  *
- * ── 怎么改版本号 ────────────────────────────────────────────────────────
+ * ── 怎么切换版本：注入**纯数字代号** ────────────────────────────────────
  * 不要再手改这个文件。同一个工程要编出两个版本：
  *   1.0.0 —— 烧进设备，当"待升级的旧版本"
  *   1.1.0 —— 传到 OneNET，当"升级包"
  * 改源码就意味着一遍遍"改了编、编完改回来"，容易漏，也会让源码被
  * 临时改动污染。**版本号是构建参数，不是源码内容** —— 这是工程化的基本分工。
  *
- * Keil 里的做法（推荐，一个工程两个 Target）：
+ * Keil 里的做法（一个工程两个 Target）：
  *   Target 下拉框（Build 按钮右边）→ Manage Project Items → New(Copy)
  *     建 A-1.0.0 和 A-1.1.0 两个 Target
- *   对每个 Target：Options for Target → C/C++ → Define 里加
- *     APP_VERSION="1.0.0"     （注意要带引号）
- *     APP_VERSION="1.1.0"
+ *   对每个 Target：Options for Target → C/C++ → Define 填
+ *       USE_STDPERIPH_DRIVER,APP_VERSION_ID=100
+ *       USE_STDPERIPH_DRIVER,APP_VERSION_ID=110
  *   建议再给两个 Target 设**不同的输出目录**（Options → Output →
  *     Select Folder for Objects），否则 Rebuild 会互相覆盖 .bin。
- *   之后：下拉框切换 Target → Rebuild → 得到对应版本的 .bin。
+ *   之后：下拉框切 Target → Rebuild → 得到对应版本的 .bin。
  *
- * 命令行构建同理：armcc -DAPP_VERSION="1.1.0" ...
+ * 命令行同理：armcc -DAPP_VERSION_ID=110 ...
+ * 代号用「主*100 + 次*10 + 修」这种好认的形式：100 = 1.0.0，110 = 1.1.0。
  *
- * ── 兜底值 ──────────────────────────────────────────────────────────────
- * 下面这个 #ifndef 只在"没有从构建配置传进来"时生效。
- * 之所以兜底成 1.0.0（而不是 "0.0.0-dev" 之类的显眼值）：
- * 忘了配置时行为保持不变、不会把设备刷成一个错版本 —— 宁可静默照旧，
- * 也不要静默刷错。真正出包时请务必按上面的办法显式指定。 */
-#ifndef APP_VERSION
+ * ⚠️ 为什么注入的是数字而不是字符串（本想直接写 APP_VERSION="1.1.0" 更直观）：
+ *   实测走不通，是**两个叠加的 Windows 老坑**——
+ *     ① Keil 生成 -DAPP_VERSION="1.1.0"，但 Windows 的参数解析把引号当
+ *        分组符**剥掉**，armcc 实际收到 -DAPP_VERSION=1.1.0。于是宏被定义成
+ *        记号 1.1.0，编译器把它当 double，源码里 "A-OTA v" APP_VERSION 直接
+ *        散架 —— 报一堆 `#18: expected a ")"` / `#167: argument of type "double"`。
+ *     ② armcc 的 -D **不接受逗号分隔多个宏**（报 `#992: invalid macro
+ *        definition`），而 Keil 的 Define 框恰恰是用逗号分隔多个符号的。
+ *   改成纯数字，这两个坑一起绕开。
+ *
+ * 加新版本只需在下面加一个 #elif —— **版本号的权威清单留在这一个头文件里**，
+ * 构建只负责"选"其中一个。这比"每次都从命令行传全字符串"好维护，
+ * 也更接近生产环境里 version.h 的做法。
+ *
+ * 兜底值取 100（1.0.0）：没传代号时行为保持不变、不会静默刷成错版本。
+ * 传了不认识的值会直接 #error 编译失败 —— 那也比静默编错版本强。 */
+#ifndef APP_VERSION_ID
+#define APP_VERSION_ID	100
+#endif
+
+#if   APP_VERSION_ID == 100
 #define APP_VERSION		"1.0.0"
+#elif APP_VERSION_ID == 110
+#define APP_VERSION		"1.1.0"
+#else
+#error "未知的 APP_VERSION_ID —— 请在这段 #if 里加一个分支，并检查 Keil 的 Define 设置"
 #endif
 
 /* ==========================================================================
