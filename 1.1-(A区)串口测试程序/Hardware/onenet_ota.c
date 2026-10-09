@@ -530,13 +530,35 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 }
 
 /* ④ 置标志 -> 回读确认 -> 复位。返回 OTA_R_OK（走到就是复位了）或 OTA_R_FAIL_FLAG */
-static uint8_t StepApply(uint32_t size)
+static uint8_t StepApply(uint32_t size, const char *target)
 {
-	/* 顺序很重要：先把长度和标志都写进结构体，再一次性写进 AT24C02。
-	 * 如果分成两次写，中间掉电可能留下"标志置了但长度是旧的"的状态 ——
+	/* 顺序很重要：先把三个字段都写进结构体，再一次性写进 AT24C02。
+	 * 如果分成几次写，中间掉电可能留下"标志置了但长度是旧的"的状态 ——
 	 * BootLoader 会照着旧长度搬一段残缺的固件进 A 区。 */
 	OTA_Info.OTA_Flag = OTA_SET_FLAG;
 	OTA_Info.FileLen[OTA_W25Q64_BLOCK] = size;
+
+	/* 顺手把**目标版本**记进 OTA_Ver。
+	 *
+	 * 这个字段在 ota_layout.h 里的定义就是"版本号字符串，给调试用"，
+	 * 而升级时我们恰好知道要升到哪个版本 —— 正是它该装的东西。
+	 *
+	 * 为什么必须主动写，不能指望"读出来原样写回"：
+	 *   A 区上电会调 AT24C02_ReadOTAInfo() 把整个结构体读进来，升级时整体写回。
+	 *   那条路径**默认读取一定成功** —— 一旦读取失败（初始化顺序出问题、
+	 *   I2C 接触不良），OTA_Info 就是全局零值，写回时会把 EEPROM 里原本
+	 *   正确的版本号**抹成 0**。实测就这么发生过：串口查版本号只剩乱码/空白。
+	 *
+	 * 主动写之后，每次升级都把这个字段刷新成"当时想升到哪个版本"，
+	 * 串口去查就有意义了。 */
+	memset(OTA_Info.OTA_Ver, 0, sizeof(OTA_Info.OTA_Ver));
+	if(target != 0 && target[0] != '\0')
+	{
+		uint16_t n = (uint16_t)strlen(target);
+		if(n > sizeof(OTA_Info.OTA_Ver) - 1) n = sizeof(OTA_Info.OTA_Ver) - 1;
+		memcpy(OTA_Info.OTA_Ver, target, n);
+	}
+
 	AT24C02_WriteOTAInfo();
 
 	/* ⚠️ 写完必须回读校验。
@@ -623,7 +645,7 @@ uint8_t OTA_Run(void)
 	}
 
 	/* 置标志 -> 回读确认 -> 复位。回读不通过就**不复位**，直接返回错误码。 */
-	r = StepApply(size);
+	r = StepApply(size, target);
 	U1_printf("===== OTA 结束 rc=%u =====\r\n\r\n", (unsigned)r);
 	return r;
 }
