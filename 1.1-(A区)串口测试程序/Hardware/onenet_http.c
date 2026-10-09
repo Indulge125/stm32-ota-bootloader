@@ -45,6 +45,17 @@ static uint16_t s_body_sent;            /* 其中已经交给调用者的字节�
 static uint8_t  s_open;                 /* TCP 是否还开着 */
 static uint8_t  s_wifi_ready;           /* WiFi 是否已经连上（连一次就够，不必每请求重连） */
 
+/* 调用者期望的 verbose 状态。4G.c 没有"查询当前开关"的接口，
+ * 所以这里自己记一份 —— HTTP_End() 关完连接后要恢复成**这个值**，
+ * 而不是无脑开成 1。详见 onenet_http.h 里 HTTP_SetVerbose 的注释。 */
+static uint8_t  s_verbose_want = 1;
+
+void HTTP_SetVerbose(uint8_t on)
+{
+	s_verbose_want = on ? 1 : 0;
+	G4_SetVerbose(s_verbose_want);
+}
+
 /* ==========================================================================
  * 简单的字符串拼接器
  * ==========================================================================
@@ -516,7 +527,7 @@ void HTTP_End(void)
 		 * （真正的连接失败在 HTTP_Start 里早就被拦下了，走到这儿就是正常收尾。） */
 		G4_SetVerbose(0);
 		G4_TcpClose();
-		G4_SetVerbose(1);
+		G4_SetVerbose(s_verbose_want);	/* 恢复调用者的意图，不是无脑开成 1 */
 		s_open = 0;
 	}
 }

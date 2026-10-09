@@ -101,8 +101,26 @@ uint8_t HTTP_Start(const char *method, const char *path,
  * -------------------------------------------------------------------------- */
 uint16_t HTTP_ReadBody(uint8_t *buf, uint16_t max);
 
-/* 收尾：关 TCP、恢复 4G.c 的 verbose 开关。可重复调用。 */
+/* 收尾：关 TCP。可重复调用。 */
 void HTTP_End(void);
+
+/* --------------------------------------------------------------------------
+ * 开关 AT 日志（转发给 4G.c 的 G4_SetVerbose，但多记一份账）
+ *
+ * ⚠️ 请用这个，不要直接调 G4_SetVerbose。
+ *
+ * 为什么需要记账：
+ *   HTTP_End() 关连接时必须临时把 verbose 关掉（Connection: close 下服务器
+ *   已经关了连接，此时再 AT+CIPCLOSE 必然回 ERROR，G4_TcpClose() 会把它当成
+ *   失败打一行 [FAIL] 假警报）。关完要恢复 —— 但如果无脑恢复成"开"，
+ *   调用方在收大块数据前特意关掉的 verbose 就会被每一次 HTTP 收尾悄悄打开，
+ *   下一轮 G4_TcpConnect 立刻 dump 整个接收缓冲。
+ *
+ *   这个坑实测踩过两次（下载循环一次、进度上报一次），都是同一类：
+ *   "过了 HTTP_End() 之后 verbose 又开了"。所以该在收数据前调用本函数关掉，
+ *   并且**每一轮都要重置** —— 不能只关一次。
+ * -------------------------------------------------------------------------- */
+void HTTP_SetVerbose(uint8_t on);
 
 /* 拼设备级路径：/fuse-ota/{产品ID}/{设备名}/{tail}
  *   tail 例："version"、"check?type=2&version=1.0.0"、"1516460/download"

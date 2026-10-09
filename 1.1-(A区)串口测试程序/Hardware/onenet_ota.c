@@ -268,6 +268,18 @@ static uint8_t StepReportStatus(uint32_t tid, uint32_t step)
 	HTTP_Resp resp;
 	uint8_t   rc;
 
+	/* ⚠️ 进度上报这几次也不该打 AT 日志 —— 和下载片是同一个道理。
+	 * 调用方（下载循环）虽然在循环顶部统一关了 verbose，但**上一片收尾时
+	 * HTTP_End() 会把它恢复成 1**，所以走到这里时它又是开的。
+	 * 必须在本函数自己再关一次，不能指望调用方。
+	 *
+	 * 实测踩过两次同一类问题：
+	 *   第一次漏在下载循环里 -> 整轮都在 dump 接收缓冲，卡死；
+	 *   第二次就是这里        -> 每片进度上报的 CIPSTART 都在 dump。
+	 * 教训：只要经过一次 HTTP_End()，verbose 就会被重新打开，
+	 *       任何"接下来要收大块数据"的地方都得自己再关一次。 */
+	HTTP_SetVerbose(0);
+
 	U32ToStr(tid, tail);
 	strcat(tail, "/status");
 	if(HTTP_DevPath(path, sizeof(path), tail) != 0) return OTA_R_FAIL_STATUS;
@@ -314,9 +326,9 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 
 	/* --- 下载循环 --- */
 	/* ⚠️ 从这里开始关掉 AT 日志。
-	 * G4_SetVerbose(1) 会把整个接收缓冲 dump 出来，收固件时一次 dump 就能
+	 * HTTP_SetVerbose(1) 会把整个接收缓冲 dump 出来，收固件时一次 dump 就能
 	 * 把缓冲吃掉、导致丢字节。调试连接问题时才需要它，下载时必须闭嘴。 */
-	G4_SetVerbose(0);
+	HTTP_SetVerbose(0);
 
 	while(off < size)
 	{
@@ -334,7 +346,7 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 		 *
 		 * 实测踩过：日志里出现成片的 [TX]/[RX]，随后丢字节卡死在下载中途。
 		 * 收固件时 AT 日志一次 dump 就能把缓冲吃掉 —— 必须每轮重置。 */
-		G4_SetVerbose(0);
+		HTTP_SetVerbose(0);
 
 		if(n > OTA_CHUNK_SIZE) n = OTA_CHUNK_SIZE;
 
@@ -347,7 +359,7 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 
 		U32ToStr(tid, tail);
 		strcat(tail, "/download");
-		if(HTTP_DevPath(path, sizeof(path), tail) != 0) { G4_SetVerbose(1); return OTA_R_FAIL_DOWNLOAD; }
+		if(HTTP_DevPath(path, sizeof(path), tail) != 0) { HTTP_SetVerbose(1); return OTA_R_FAIL_DOWNLOAD; }
 
 		/* 每片打一行带片号的日志。
 		 * 没有它，"卡住"只能看出一堆一模一样的 HTTP 206，不知道停在第几片；
@@ -360,7 +372,7 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 		rc = HTTP_Start("GET", path, 0, 0, range, &resp);
 		if(rc != HTTP_OK)
 		{
-			G4_SetVerbose(1);
+			HTTP_SetVerbose(1);
 			U1_printf("[OTA] 下载第 %u 片：HTTP 层失败 rc=%u\r\n",
 			          (unsigned)(off / OTA_CHUNK_SIZE), (unsigned)rc);
 			return OTA_R_FAIL_DOWNLOAD;
@@ -372,7 +384,7 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 		 *   只有 Ota-Errno 说实话。先查它，报错信息才准确。 */
 		if(resp.ota_errno != 0)
 		{
-			G4_SetVerbose(1);
+			HTTP_SetVerbose(1);
 			U1_printf("[OTA] 下载被拒：Ota-Errno=%d（1设备不存在 2文件不存在 "
 			          "3对象存储无资源 4大小不一致 5任务过期 6鉴权失败）\r\n",
 			          (int)resp.ota_errno);
@@ -381,7 +393,7 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 		}
 		if(resp.status != 206 && resp.status != 200)
 		{
-			G4_SetVerbose(1);
+			HTTP_SetVerbose(1);
 			U1_printf("[OTA] 下载第 %u 片：HTTP %u\r\n",
 			          (unsigned)(off / OTA_CHUNK_SIZE), (unsigned)resp.status);
 			HTTP_End();
@@ -402,7 +414,7 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 			}
 			if(got != n)
 			{
-				G4_SetVerbose(1);
+				HTTP_SetVerbose(1);
 				U1_printf("[OTA] 第 %u 片只收到 %u/%u 字节就断了\r\n",
 				          (unsigned)(off / OTA_CHUNK_SIZE), (unsigned)got, (unsigned)n);
 				HTTP_End();
@@ -446,7 +458,7 @@ static uint8_t StepDownload(uint32_t tid, uint32_t size, const char *expect_md5)
 		}
 	}
 
-	G4_SetVerbose(1);
+	HTTP_SetVerbose(1);
 
 	/* --- 校验 --- */
 	MD5_Final(&ctx, digest);
