@@ -114,12 +114,18 @@ flowchart LR
 | AT24C02（EEPROM） | 软件 I2C | `PB10` = SCL，`PB11` = SDA |
 | W25Q64（SPI Flash） | 软件 SPI | `PA4` = CS，`PA5` = CLK，`PA6` = DO，`PA7` = DI |
 | 上位机通信 | USART1 | `PA9` = TX，`PA10` = RX，**9600-8-N-1** |
+| WiFi 模组（ESP8266 D1 Mini） | USART2 | `PA2` = TX，`PA3` = RX，**115200-8-N-1** |
 
 > **注意**：本板上 OLED 模块的 GND / VCC 分别走 `PB6` / `PB7`，
 > 这两个脚是**电源通路，不能当 GPIO 使用**，因此 AT24C02 的软件 I2C 改到了 `PB10` / `PB11`。
 >
 > **AT24C02 模块**的 `A0 / A1 / A2 / WP` 是三针跳线块（中间为信号，两侧为 VCC / GND）：
 > 四个跳线帽都必须跨在 **GND 侧**，否则地址会变成 `0xAE`（代码用的是 `0xA0`）且写保护生效。
+
+> ⚠️ **ESP8266 D1 Mini 必须常驻 ESP-AT 固件** —— 本项目把它当 **WiFi 模组**用，不是当单片机。
+> 这块板是**共享硬件**：一旦拿它去跑 Arduino sketch（比如课程作业），AT 固件就被整片覆盖，
+> OTA 链路立刻失效，而 STM32 只会报「模组没应答」，**看不出真因**。
+> 覆盖后的恢复步骤见 → [`docs/D1Mini-AT固件恢复.md`](docs/D1Mini-AT固件恢复.md)
 
 ### 上位机串口设置
 
@@ -354,6 +360,8 @@ for t in sign md5 macro_fix crc_equiv payload_read ota_server; do python scripts
 ## 文档
 
 - [AT24C02 上电自检故障排查记录](docs/AT24C02-调试记录.md)
+- [D1 Mini AT 固件恢复](docs/D1Mini-AT固件恢复.md) —— 这块 ESP8266 是**共享硬件**，
+  被 Arduino 项目覆盖 AT 固件后的恢复步骤、已知可用参数、四个踩坑
 - [工程问题与踩坑记录](docs/工程问题与踩坑记录.md) —— Flash 分区溢出、编码取舍、
   下载工具链、以及两个框架层面的脆弱点：重点记**怎么定位的**，不只是怎么修的
 - `scripts/README` 相关见上文「固件下载工具」
